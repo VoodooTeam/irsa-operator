@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'config/helm/**'
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - 'config/helm/**'
+
+jobs:
+
+  sanity-checks:
+    name: Sanity checks
+    runs-on: ubuntu-latest 
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Go 1.15
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.15 
+      id: go
+
+    - name: Format
+      run: if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then exit 1; fi
+
+    - name: Lint 
+      uses: golangci/golangci-lint-action@v2
+      with:
+        version: v1.29
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest 
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Go 1.15
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.15 
+      id: go
+
+    - name: Generate manifests
+      run: make generate
+
+    - name: Test
+      env:
+        LOCALSTACK_ENDPOINT: ${{ job.services.localstack.ports[4566] }} 
+      shell: bash
+      run: |
+        export ENVTEST_ASSETS_DIR=${GITHUB_WORKSPACE}/testbin
+        source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh
+        fetch_envtest_tools ${ENVTEST_ASSETS_DIR}
+        setup_envtest_env ${ENVTEST_ASSETS_DIR}
+        go test -v ./... -coverprofile cover.out
+
+    services:
+      localstack:
+        image: localstack/localstack:0.12.4
+        env: 
+          SERVICES: 'iam,s3,sts'

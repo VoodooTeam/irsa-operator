@@ -1,0 +1,5 @@
+# usage : ./tlapdf ./IrsaOperator
+
+tla2tex -textwidth 470 -hoffset -70 -textheight 630 -voffset -50 -shade $1.tla \
+    && pdflatex $1.tex \
+    && rm $1.log $1.aux $1.dvi $1.tex $1.ps

@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: s3test
+  name: s3test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: s3test
+  template:
+    metadata:
+      labels:
+        app: s3test
+    spec:
+      serviceAccountName: s3put
+      containers:
+      - image: amazon/aws-cli
+        name: aws-cli
+        command: ["aws", "s3", "ls", "test-irsa-4gkut9fl"]
+

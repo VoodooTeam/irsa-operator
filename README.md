@@ -1,6 +1,6 @@
 # IRSA operator 
 
-![CI](https://github.com/matthieuJacquot-voodoo/test-github-actions/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/VoodooTeam/irsa-operator/actions/workflows/ci.yml/badge.svg)
 
 A Kubernetes operator to manage IAM roles & policies needed for IRSA, directly from your EKS cluster
 

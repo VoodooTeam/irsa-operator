@@ -1,0 +1,29 @@
+domain: voodoo.io
+layout: go.kubebuilder.io/v3
+projectName: irsa-operator
+repo: github.com/VoodooTeam/irsa-operator
+resources:
+- crdVersion: v1
+  group: irsa
+  kind: IamRoleServiceAccount
+  version: v1alpha1
+- crdVersion: v1
+  group: irsa
+  kind: Awspolicy
+  version: v1alpha1
+- crdVersion: v1
+  group: irsa
+  kind: Awsrole
+  version: v1alpha1
+- crdVersion: v1
+  group: irsa
+  kind: Role
+  version: v1alpha1
+- crdVersion: v1
+  group: irsa
+  kind: Policy
+  version: v1alpha1
+version: 3-alpha
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}

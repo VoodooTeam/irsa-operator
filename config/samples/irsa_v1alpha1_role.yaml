@@ -1,0 +1,7 @@
+apiVersion: irsa.voodoo.io/v1alpha1
+kind: Role
+metadata:
+  name: role-sample
+spec:
+  # Add fields here
+  foo: bar

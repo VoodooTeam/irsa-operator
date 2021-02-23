@@ -1,0 +1,36 @@
+apiVersion: irsa.voodoo.io/v1alpha1
+kind: IamRoleServiceAccount
+metadata:
+  name: iamroleserviceaccount-test-sample
+spec:
+  serviceAccountName: s3get
+  policy: 
+    statement:
+      - resource: "arn:aws:s3:::{{ .Values.s3BucketName }}"
+        action:
+          - "s3:Get*"
+          - "s3:List*"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: s3lister
+  name: s3lister
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: s3lister
+  template:
+    metadata:
+      labels:
+        app: s3lister
+    spec:
+      serviceAccountName: s3get
+      containers:
+      - image: amazon/aws-cli
+        name: aws-cli
+        command: ["aws", "s3", "ls", "{{ .Values.s3BucketName }}"]
+
