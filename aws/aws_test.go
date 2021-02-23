@@ -38,7 +38,7 @@ var _ = Describe("policy", func() {
 })
 
 var _ = Describe("role", func() {
-	role := api.NewRole("name", "testns", "serviceaccountname")
+	role := api.NewRole("name", "testns")
 	Context("given a valid role", func() {
 		It("doesn't exist yet", func() {
 			exists, err := awsmngr.RoleExists(role.AwsName(clusterName))

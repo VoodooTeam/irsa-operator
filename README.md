@@ -11,15 +11,14 @@ This project is built using the Kubernetes [operator SDK](https://sdk.operatorfr
 
 ## Example
 
-This CRD will allow any pod using the `serviceAccount` named `s3put` to `Get` and `List` all objects in the s3 bucket with ARN `arn:aws:s3:::test-irsa-4gkut9fl`
+This CRD will allow any pod using the `serviceAccount` named `s3-get-lister` to `Get` and `List` all objects in the s3 bucket with ARN `arn:aws:s3:::test-irsa-4gkut9fl`
 
 ```
 apiVersion: irsa.voodoo.io/v1alpha1
 kind: IamRoleServiceAccount
 metadata:
-  name: iamroleserviceaccount-test-sample
+  name: s3-get-lister 
 spec:
-  serviceAccountName: s3put
   policy: 
     statement:
       - resource: "arn:aws:s3:::test-irsa-4gkut9fl"
@@ -33,8 +32,30 @@ What this operator does (from a user point of view) :
 - create an IAM Role with this policy attached to it
 - create a serviceAccount named as specified with the IAM Role capabilities
 
-_NB :_  
-- the name of the resource (`metadata.name`) is mandatory (because of k8s) and has no particular utility for the end-user
+you can use the serviceAccount created by the irsa-operator by simply setting its name in your pods `spec.serviceAccountName`
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: irsa-test
+  name: irsa-test
+spec:
+  selector:
+    matchLabels:
+      app: irsa-test
+  template:
+    metadata:
+      labels:
+        app: irsa-test
+    spec:
+      serviceAccountName: s3-get-lister # <- HERE
+      containers:
+      - image: amazon/aws-cli
+        name: aws-cli
+        command: ["aws", "s3", "ls", "arn:aws:s3:::test-irsa-4gkut9fl"]
+```
 
 ## (manual) installation of the operator
 

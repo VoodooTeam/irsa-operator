@@ -8,7 +8,7 @@ import (
 )
 
 // NewRole constructs a Role, setting mandatory fields for us
-func NewRole(name, ns, serviceAccountName string) *Role {
+func NewRole(name, ns string) *Role {
 	return &Role{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "irsa.voodoo.io/v1alpha1",
@@ -19,7 +19,7 @@ func NewRole(name, ns, serviceAccountName string) *Role {
 			Namespace: ns,
 		},
 		Spec: RoleSpec{
-			ServiceAccountName: serviceAccountName,
+			ServiceAccountName: name,
 		},
 	}
 }

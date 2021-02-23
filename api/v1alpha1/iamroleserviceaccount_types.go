@@ -1,14 +1,13 @@
 package v1alpha1
 
 import (
-	"errors"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // NewIamRoleServiceAccount is the IamRoleServiceAccount constructor
-func NewIamRoleServiceAccount(name, ns, saName string, policyspec PolicySpec) *IamRoleServiceAccount {
+func NewIamRoleServiceAccount(name, ns string, policyspec PolicySpec) *IamRoleServiceAccount {
 	return &IamRoleServiceAccount{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "irsa.voodoo.io/v1alpha1",
@@ -19,8 +18,7 @@ func NewIamRoleServiceAccount(name, ns, saName string, policyspec PolicySpec) *I
 			Namespace: ns,
 		},
 		Spec: IamRoleServiceAccountSpec{
-			ServiceAccountName: saName,
-			Policy:             policyspec,
+			Policy: policyspec,
 		},
 	}
 }
@@ -37,16 +35,12 @@ func (irsa IamRoleServiceAccount) IsPendingDeletion() bool {
 
 // Validate returns an error if the IamRoleServiceAccountSpec is not valid
 func (irsa IamRoleServiceAccount) Validate() error {
-	if irsa.Spec.ServiceAccountName == "" {
-		return errors.New("empty serviceAccountName")
-	}
 	return irsa.Spec.Policy.Validate()
 }
 
 // IamRoleServiceAccountSpec defines the desired state of IamRoleServiceAccount
 type IamRoleServiceAccountSpec struct {
-	ServiceAccountName string     `json:"serviceAccountName"`
-	Policy             PolicySpec `json:"policy"`
+	Policy PolicySpec `json:"policy"`
 }
 
 // IamRoleServiceAccountStatus defines the observed state of IamRoleServiceAccount
