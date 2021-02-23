@@ -71,18 +71,17 @@ func run(irsaName string, wg *sync.WaitGroup) {
 	}
 
 	{ // k8s
-		saName := validName()
 		{
 			// we submit the iamroleserviceaccount Spec to k8s
 			createResource(
-				api.NewIamRoleServiceAccount(irsaName, testns, saName, submittedPolicy),
+				api.NewIamRoleServiceAccount(irsaName, testns, submittedPolicy),
 			).Should(Succeed())
 		}
 		{ // every CR must eventually reach an OK status & serviceAccount has been created
 			foundPolicyInCondition(irsaName, testns, api.CrOK).Should(BeTrue())
 			foundRoleInCondition(irsaName, testns, api.CrOK).Should(BeTrue())
 			foundIrsaInCondition(irsaName, testns, api.IrsaOK).Should(BeTrue())
-			findSa(saName, testns).Should(BeTrue())
+			findSa(irsaName, testns).Should(BeTrue())
 		}
 	}
 

@@ -12,7 +12,7 @@ var _ = Describe("IamRoleServiceAccount validity check", func() {
 
 		It("fails at submission", func() {
 			Expect(
-				api.NewIamRoleServiceAccount(validName(), testns, randString(), invalidPolicySpec).Validate(),
+				api.NewIamRoleServiceAccount(validName(), testns, invalidPolicySpec).Validate(),
 			).ShouldNot(Succeed())
 		})
 	})
@@ -23,18 +23,9 @@ var _ = Describe("IamRoleServiceAccount validity check", func() {
 				{Resource: "arn:aws:s3:::my_corporate_bucket/exampleobject.png", Action: []string{"act1"}},
 			},
 		}
-		name := validName()
-
-		Context("if the spec.serviceAccountName is an empty string", func() {
-			invalidSaName := ""
-			It("doesnt pass validation", func() {
-				irsa := api.NewIamRoleServiceAccount(name, testns, invalidSaName, validPolicy)
-				Expect(irsa.Validate()).ShouldNot(Succeed())
-			})
-		})
 
 		Context("if everything else is also ok", func() {
-			irsa := api.NewIamRoleServiceAccount(name, testns, validName(), validPolicy)
+			irsa := api.NewIamRoleServiceAccount(validName(), testns, validPolicy)
 			It("it passes validation", func() {
 				Expect(irsa.Validate()).Should(Succeed())
 			})

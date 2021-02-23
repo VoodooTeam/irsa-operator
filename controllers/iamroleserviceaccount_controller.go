@@ -124,7 +124,7 @@ func (r *IamRoleServiceAccountReconciler) admissionStep(ctx context.Context, irs
 	}
 
 	{ // we check the serviceAccountName doesn't conflict with an existing one
-		if r.saWithNameExistsInNs(ctx, irsa.Spec.ServiceAccountName, irsa.ObjectMeta.Namespace) {
+		if r.saWithNameExistsInNs(ctx, irsa.ObjectMeta.Name, irsa.ObjectMeta.Namespace) {
 			e := errors.New("service_account already exists")
 			r.log.Info(e.Error())
 
@@ -190,7 +190,7 @@ func (r *IamRoleServiceAccountReconciler) reconcilerRoutine(ctx context.Context,
 
 	{ // service_account creation
 		var ok completed
-		saAlreadyExists, ok = r.saAlreadyExists(ctx, irsa.Spec.ServiceAccountName, irsa.ObjectMeta.Namespace)
+		saAlreadyExists, ok = r.saAlreadyExists(ctx, irsa.ObjectMeta.Name, irsa.ObjectMeta.Namespace)
 		if !ok {
 			return ctrl.Result{Requeue: true}, nil
 		}
@@ -226,7 +226,7 @@ func (r *IamRoleServiceAccountReconciler) executeFinalizerIfPresent(ctx context.
 
 	{ // we delete the service account we created, we first need to ensure it is not owned by another operator (since it's a serviceaccount)
 		sa := &corev1.ServiceAccount{}
-		if err := r.Get(ctx, types.NamespacedName{Namespace: irsa.Namespace, Name: irsa.Spec.ServiceAccountName}, sa); err != nil {
+		if err := r.Get(ctx, types.NamespacedName{Namespace: irsa.ObjectMeta.Namespace, Name: irsa.ObjectMeta.Name}, sa); err != nil {
 			if !k8serrors.IsNotFound(err) {
 				r.log.Error(err, "get resource failed")
 				return false
@@ -376,7 +376,6 @@ func (r *IamRoleServiceAccountReconciler) createRole(ctx context.Context, irsa *
 	role := api.NewRole(
 		irsa.ObjectMeta.Name,
 		irsa.ObjectMeta.Namespace,
-		irsa.Spec.ServiceAccountName,
 	)
 
 	// set this irsa instance as the owner of this role
@@ -419,7 +418,7 @@ func (r *IamRoleServiceAccountReconciler) createServiceAccount(ctx context.Conte
 				Kind:       "ServiceAccount",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      irsa.Spec.ServiceAccountName,
+				Name:      irsa.ObjectMeta.Name,
 				Namespace: irsa.ObjectMeta.Namespace,
 				Annotations: map[string]string{
 					"eks.amazonaws.com/role-arn": role.Spec.RoleARN,
