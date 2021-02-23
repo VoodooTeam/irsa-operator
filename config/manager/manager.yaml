@@ -38,7 +38,7 @@ spec:
         - /manager
         args:
         - --leader-elect
-        image: docker.pkg.github.com/voodooteam/irsa-operator/irsa-operator:v{{ .Chart.Version }}
+        image: ghcr.io/voodooteam/irsa-operator:v{{ .Chart.Version }}
         name: manager
         imagePullPolicy: Always
         securityContext:

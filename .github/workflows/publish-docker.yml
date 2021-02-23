@@ -15,7 +15,7 @@ jobs:
         uses: docker/build-push-action@v1
         with:
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          registry: docker.pkg.github.com
-          repository: voodooteam/irsa-operator/irsa-operator
+          password: ${{ secrets.GHCR }}
+          registry: ghcr.io
+          repository: voodooteam/irsa-operator
           tag_with_ref: true
