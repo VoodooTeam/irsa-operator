@@ -6,7 +6,7 @@ A Kubernetes operator to manage IAM roles & policies needed for IRSA, directly f
 
 This project is built using the Kubernetes [operator SDK](https://sdk.operatorframework.io/)
 
-## What problem does it solves ?
+## What problem does it solve ?
 
 When using IRSA in order to scope AWS permissions at the pod-level (instead of the usual node-level) you have to define the "absolute path" of the serviceAccount to give it some rights on AWS resources (ie. declare on AWS the exact namespace and name of the serviceAccount allowed to assume the role). This creates an hidden dependency between AWS and your k8s serviceAccount. For instance, you will break the permissions given by the serviceAccount if you just rename it.
 
