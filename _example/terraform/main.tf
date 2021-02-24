@@ -104,7 +104,7 @@ module "iam_assumable_role_admin" {
   role_name                     = "irsa-operator"
   provider_url                  = replace(module.eks.cluster_oidc_issuer_url, "https://", "")
   role_policy_arns              = [aws_iam_policy.irsa.arn]
-  oidc_fully_qualified_subjects = ["system:serviceaccount:irsa-operator-system:irsa-operator-oidc-sa"]
+  oidc_fully_qualified_subjects = ["system:serviceaccount:irsa-operator-system:irsa-operator-oidc-sa"] # these fields are hardcoded in the helm chart
 }
 
 resource "aws_iam_policy" "irsa" {
