@@ -18,6 +18,11 @@ It will automatically create the resources needed on AWS and the serviceAccount 
 ## Caveat
 - oidc must be enabled on your EKS cluster 
 
+## Resources 
+
+- [Docker images](https://github.com/orgs/VoodooTeam/packages/container/package/irsa-operator)
+- [Helm repo](https://voodooteam.github.io/irsa-operator/index.yaml)
+
 ## Example
 
 This CRD will allow any pod using the `serviceAccount` named `s3-get-lister` to `Get` and `List` all objects in the s3 bucket with ARN `arn:aws:s3:::test-irsa-4gkut9fl`
