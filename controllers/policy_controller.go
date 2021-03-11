@@ -191,7 +191,7 @@ func (r *PolicyReconciler) executeFinalizerIfPresent(policy *api.Policy) complet
 	// let's delete the policy itself
 	if err := r.Delete(context.TODO(), policy); err != nil {
 		if !k8serrors.IsNotFound(err) {
-			r.log.Error(err, "delete policy failed")
+			r.logExtErr(err, "delete policy failed")
 			return false
 		}
 	}
@@ -214,12 +214,7 @@ func (r *PolicyReconciler) waitIfTesting() {
 // helper function to update a Policy status
 func (r *PolicyReconciler) updateStatus(ctx context.Context, Policy *api.Policy, status api.PolicyStatus) error {
 	Policy.Status = status
-	if err := r.Status().Update(ctx, Policy); err != nil {
-		r.log.Error(err, "unable to update Policy status")
-		return err
-	}
-
-	return nil
+	return r.Status().Update(ctx, Policy)
 }
 
 func (r *PolicyReconciler) registerFinalizerIfNeeded(role *api.Policy) completed {
@@ -228,7 +223,7 @@ func (r *PolicyReconciler) registerFinalizerIfNeeded(role *api.Policy) completed
 		// we add it to the role.
 		role.ObjectMeta.Finalizers = append(role.ObjectMeta.Finalizers, r.finalizerID)
 		if err := r.Update(context.Background(), role); err != nil {
-			r.log.Error(err, "setting finalizer failed")
+			r.logExtErr(err, "setting finalizer failed")
 			return false
 		}
 	}
@@ -246,7 +241,7 @@ func (r *PolicyReconciler) getPolicyFromReq(ctx context.Context, req ctrl.Reques
 			return nil, true
 		}
 
-		r.log.Error(err, "get resource failed")
+		r.logExtErr(err, "get resource failed")
 		return nil, false
 	}
 
@@ -256,7 +251,7 @@ func (r *PolicyReconciler) getPolicyFromReq(ctx context.Context, req ctrl.Reques
 func (r *PolicyReconciler) setPolicyArnField(ctx context.Context, arn string, policy *api.Policy) completed {
 	policy.Spec.ARN = arn
 	if err := r.Update(ctx, policy); err != nil {
-		r.log.Error(err, "failed to set policy.Spec.ARN")
+		r.logExtErr(err, "failed to set policy.Spec.ARN")
 		return false
 	}
 	return true

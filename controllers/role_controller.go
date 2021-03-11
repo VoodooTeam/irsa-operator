@@ -176,7 +176,7 @@ func (r *RoleReconciler) setRoleArnField(ctx context.Context, role *api.Role) co
 	// set the roleArn in spec
 	role.Spec.RoleARN = roleArn
 	if err := r.Update(context.Background(), role); err != nil {
-		r.log.Error(err, "failed to set roleArn field in role")
+		r.logExtErr(err, "failed to set roleArn field in role")
 		return false
 	}
 
@@ -243,7 +243,7 @@ func (r *RoleReconciler) setPolicyArnFieldIfPossible(ctx context.Context, role *
 
 	role.Spec.PolicyARN = policy.Spec.ARN
 	if err := r.Update(ctx, role); err != nil {
-		r.log.Error(err, "failed to set policyARN in role spec")
+		r.logExtErr(err, "failed to set policyARN in role spec")
 		return false
 	}
 
@@ -256,7 +256,7 @@ func (r *RoleReconciler) registerFinalizerIfNeeded(role *api.Role) completed {
 		// we add it to the role.
 		role.ObjectMeta.Finalizers = append(role.ObjectMeta.Finalizers, r.finalizerID)
 		if err := r.Update(context.Background(), role); err != nil {
-			r.log.Error(err, "setting finalizer failed")
+			r.logExtErr(err, "setting finalizer failed")
 			return false
 		}
 	}
@@ -301,7 +301,7 @@ func (r *RoleReconciler) executeFinalizerIfPresent(role *api.Role) completed {
 	// let's delete the role itself
 	if err := r.Delete(context.TODO(), role); err != nil {
 		if !k8serrors.IsNotFound(err) {
-			r.log.Error(err, "role resource failed")
+			r.logExtErr(err, "role resource failed")
 			return false
 		}
 	}
@@ -310,7 +310,7 @@ func (r *RoleReconciler) executeFinalizerIfPresent(role *api.Role) completed {
 	// we remove our finalizer from the list and update it.
 	role.ObjectMeta.Finalizers = removeString(role.ObjectMeta.Finalizers, r.finalizerID)
 	if err := r.Update(context.Background(), role); err != nil {
-		r.log.Error(err, "failed to remove the finalizer")
+		r.logExtErr(err, "failed to remove the finalizer")
 		return false
 	}
 
@@ -324,7 +324,7 @@ func (r *RoleReconciler) getPolicy(ctx context.Context, name, ns string) (*api.P
 			return nil, true
 		}
 
-		r.log.Error(err, "get policy failed")
+		r.logExtErr(err, "get policy failed")
 		return nil, false
 	}
 
@@ -338,7 +338,7 @@ func (r *RoleReconciler) getRoleFromReq(ctx context.Context, req ctrl.Request) (
 			return nil, true
 		}
 
-		r.log.Error(err, "get resource failed")
+		r.logExtErr(err, "get resource failed")
 		return nil, false
 	}
 
@@ -351,13 +351,8 @@ func (r *RoleReconciler) waitIfTesting() {
 	}
 }
 
-// helper function to update a Policy status
+// helper function to update a Role status
 func (r *RoleReconciler) updateStatus(ctx context.Context, role *api.Role, status api.RoleStatus) error {
 	role.Status = status
-	if err := r.Status().Update(ctx, role); err != nil {
-		r.log.Error(err, "failed to update Policy status")
-		return err
-	}
-
-	return nil
+	return r.Status().Update(ctx, role)
 }
