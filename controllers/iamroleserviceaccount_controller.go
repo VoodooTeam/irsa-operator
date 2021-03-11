@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	"errors"
 
@@ -110,11 +111,11 @@ func (r *IamRoleServiceAccountReconciler) admissionStep(ctx context.Context, irs
 
 	{ // we check submitted spec validity
 		if err := irsa.Validate(); err != nil {
-			r.log.Error(err, "invalid spec, passing status to failed")
+			r.logExtErr(err, "invalid spec, passing status to failed")
 
 			// we set the status.condition to failed
 			if err := r.updateStatus(ctx, irsa, api.IamRoleServiceAccountStatus{Condition: api.IrsaFailed, Reason: err.Error()}); err != nil {
-				r.log.Error(err, "failed to set iamroleserviceaccount status to failed")
+				r.logExtErr(err, "failed to set iamroleserviceaccount status to failed")
 				return ctrl.Result{Requeue: true}, nil
 			}
 
@@ -130,7 +131,7 @@ func (r *IamRoleServiceAccountReconciler) admissionStep(ctx context.Context, irs
 
 			// if it's the case, we set the status.condition to saNameConflict
 			if err := r.updateStatus(ctx, irsa, api.IamRoleServiceAccountStatus{Condition: api.IrsaSaNameConflict, Reason: e.Error()}); err != nil {
-				r.log.Error(err, "failed to set iamroleserviceaccount status to saNameConflict")
+				r.logExtErr(err, "failed to set iamroleserviceaccount status to saNameConflict")
 				return ctrl.Result{Requeue: true}, nil
 			}
 
@@ -141,7 +142,7 @@ func (r *IamRoleServiceAccountReconciler) admissionStep(ctx context.Context, irs
 
 	{ // we update the status to pending
 		if err := r.updateStatus(ctx, irsa, api.IamRoleServiceAccountStatus{Condition: api.IrsaPending, Reason: "passed validation"}); err != nil {
-			r.log.Error(err, "failed to set iamroleserviceaccount status to pending")
+			r.log.Info("requeing, failed to set iamroleserviceaccount status to pending", err)
 			return ctrl.Result{Requeue: true}, nil
 		}
 	}
@@ -206,7 +207,7 @@ func (r *IamRoleServiceAccountReconciler) reconcilerRoutine(ctx context.Context,
 	{ // set the status to ok
 		if policyAlreadyExists && roleAlreadyExists && saAlreadyExists && irsa.Status.Condition != api.IrsaOK {
 			if err := r.updateStatus(ctx, irsa, api.IamRoleServiceAccountStatus{Condition: api.IrsaOK, Reason: "all resources successfully created"}); err != nil {
-				r.log.Error(err, "failed to set iamroleserviceaccount status to ok")
+				r.logExtErr(err, "failed to set iamroleserviceaccount status to ok")
 				return ctrl.Result{Requeue: true}, nil
 			}
 		}
@@ -228,7 +229,7 @@ func (r *IamRoleServiceAccountReconciler) executeFinalizerIfPresent(ctx context.
 		sa := &corev1.ServiceAccount{}
 		if err := r.Get(ctx, types.NamespacedName{Namespace: irsa.ObjectMeta.Namespace, Name: irsa.ObjectMeta.Name}, sa); err != nil {
 			if !k8serrors.IsNotFound(err) {
-				r.log.Error(err, "get resource failed")
+				r.logExtErr(err, "get resource failed")
 				return false
 			}
 		}
@@ -244,7 +245,7 @@ func (r *IamRoleServiceAccountReconciler) executeFinalizerIfPresent(ctx context.
 		if owned { // we delete the service account if we own it
 			if err := r.Delete(ctx, sa); err != nil {
 				if !k8serrors.IsNotFound(err) {
-					r.log.Error(err, "get resource failed")
+					r.logExtErr(err, "get resource failed")
 					return false
 				}
 			}
@@ -255,7 +256,7 @@ func (r *IamRoleServiceAccountReconciler) executeFinalizerIfPresent(ctx context.
 		r.log.Info("deleting irsa")
 		if err := r.Delete(ctx, irsa); err != nil {
 			if !k8serrors.IsNotFound(err) {
-				r.log.Error(err, "delete resource failed")
+				r.logExtErr(err, "delete resource failed")
 				return false
 			}
 		}
@@ -264,7 +265,7 @@ func (r *IamRoleServiceAccountReconciler) executeFinalizerIfPresent(ctx context.
 	{ // we remove our finalizer from the list and update it.
 		irsa.ObjectMeta.Finalizers = removeString(irsa.ObjectMeta.Finalizers, r.finalizerID)
 		if err := r.Update(context.Background(), irsa); err != nil {
-			r.log.Error(err, "failed to remove the finalizer")
+			r.logExtErr(err, "failed to remove the finalizer")
 			return false
 		}
 	}
@@ -280,7 +281,7 @@ func (r *IamRoleServiceAccountReconciler) getIrsaFromReq(ctx context.Context, re
 			return nil, true
 		}
 
-		r.log.Error(err, "get resource failed")
+		r.logExtErr(err, "get resource failed")
 		return nil, false
 	}
 
@@ -321,7 +322,7 @@ func (r *IamRoleServiceAccountReconciler) resourceExists(ctx context.Context, na
 			return false, true
 		} else {
 			// something went wrong, requeue
-			r.log.Error(err, "get resource failed")
+			r.logExtErr(err, "get resource failed")
 			return false, false
 		}
 	}
@@ -337,13 +338,13 @@ func (r *IamRoleServiceAccountReconciler) createPolicy(ctx context.Context, irsa
 	// set this irsa instance as the owner of this role
 	if err := ctrl.SetControllerReference(irsa, newPolicy, r.scheme); err != nil {
 		// another resource is already the owner...
-		r.log.Error(err, "failed to set the controller reference")
+		r.logExtErr(err, "failed to set the controller reference")
 		return false
 	}
 
 	if err := r.Client.Create(ctx, newPolicy); err != nil {
 		// we failed to create it, requeue
-		r.log.Error(err, "failed to create policy")
+		r.logExtErr(err, "failed to create policy")
 		return false
 	}
 	return true
@@ -362,7 +363,7 @@ func (r *IamRoleServiceAccountReconciler) updatePolicyIfNeeded(ctx context.Conte
 	policy.Spec.Statement = irsa.Spec.Policy.Statement
 	if err := r.Client.Update(ctx, policy); err != nil {
 		// we failed to create it, requeue
-		r.log.Error(err, "failed to create policy")
+		r.logExtErr(err, "failed to create policy")
 		return false
 	}
 
@@ -381,13 +382,13 @@ func (r *IamRoleServiceAccountReconciler) createRole(ctx context.Context, irsa *
 	// set this irsa instance as the owner of this role
 	if err := ctrl.SetControllerReference(irsa, role, r.scheme); err != nil {
 		// another resource is already the owner...
-		r.log.Error(err, "failed to set the controller reference")
+		r.logExtErr(err, "failed to set the controller reference")
 		return false
 	}
 
 	// then we create the role on k8s
 	if err := r.Client.Create(ctx, role); err != nil {
-		r.log.Error(err, "failed to create role")
+		r.logExtErr(err, "failed to create role")
 		return false
 	}
 
@@ -403,7 +404,7 @@ func (r *IamRoleServiceAccountReconciler) createServiceAccount(ctx context.Conte
 			return false
 		} else {
 			// something went wrong, requeue
-			r.log.Error(err, "get resource failed")
+			r.logExtErr(err, "get resource failed")
 			return false
 		}
 	}
@@ -429,14 +430,14 @@ func (r *IamRoleServiceAccountReconciler) createServiceAccount(ctx context.Conte
 		// set the current iamroleserviceaccount as the owner
 		if err := ctrl.SetControllerReference(irsa, newServiceAccount, r.scheme); err != nil {
 			// another resource is already the owner...
-			r.log.Error(err, "failed to set the controller reference")
+			r.logExtErr(err, "failed to set the controller reference")
 			return false
 		}
 
 		// then actually create the serviceAccount
 		if err := r.Client.Create(ctx, newServiceAccount); err != nil {
 			// we failed to create it, requeue
-			r.log.Error(err, "failed to create serviceaccount")
+			r.logExtErr(err, "failed to create serviceaccount")
 			return false
 		}
 	} else {
@@ -453,12 +454,7 @@ func (r *IamRoleServiceAccountReconciler) saWithNameExistsInNs(ctx context.Conte
 
 func (r *IamRoleServiceAccountReconciler) updateStatus(ctx context.Context, obj *api.IamRoleServiceAccount, status api.IamRoleServiceAccountStatus) error {
 	obj.Status = status
-	if err := r.Status().Update(ctx, obj); err != nil {
-		r.log.Error(err, "unable to update IamRoleServiceAccount status")
-		return err
-	}
-
-	return nil
+	return r.Status().Update(ctx, obj)
 }
 
 func (r *IamRoleServiceAccountReconciler) waitIfTesting() {
@@ -473,9 +469,13 @@ func (r *IamRoleServiceAccountReconciler) registerFinalizerIfNeeded(role *api.Ia
 		// we add it to the irsa
 		role.ObjectMeta.Finalizers = append(role.ObjectMeta.Finalizers, r.finalizerID)
 		if err := r.Update(context.Background(), role); err != nil {
-			r.log.Error(err, "setting finalizer failed")
+			r.logExtErr(err, "setting finalizer failed")
 			return false
 		}
 	}
 	return true
+}
+
+func (r *IamRoleServiceAccountReconciler) logExtErr(err error, msg string) {
+	r.log.Info(fmt.Sprintf("%s : %s", msg, err))
 }
