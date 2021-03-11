@@ -31,7 +31,6 @@ require (
 	github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.16.0 // indirect
-	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83 // indirect
 	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110 // indirect
 	golang.org/x/oauth2 v0.0.0-20210311163135-5366d9dc1934 // indirect
 	golang.org/x/sys v0.0.0-20210309074719-68d13333faf2 // indirect
@@ -49,4 +48,9 @@ require (
 	k8s.io/utils v0.0.0-20210305010621-2afb4311ab10 // indirect
 	sigs.k8s.io/controller-runtime v0.8.3
 	sigs.k8s.io/structured-merge-diff/v4 v4.1.0 // indirect
+)
+
+replace (
+  golang.org/x/crypto => golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975 // CVE-2020-9283
+  golang.org/x/text => golang.org/x/text v0.3.3 // CVE-2018-1098 
 )
