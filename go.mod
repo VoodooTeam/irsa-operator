@@ -17,7 +17,6 @@ require (
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/googleapis/gnostic v0.5.4 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
-	github.com/nats-io/nats-server/v2 v2.1.9 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.3
@@ -48,4 +47,6 @@ replace (
 	github.com/miekg/dns => github.com/miekg/dns v1.1.25
 	golang.org/x/crypto => golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975 // CVE-2020-9283
 	golang.org/x/text => golang.org/x/text v0.3.3 // CVE-2018-1098
+	github.com/nats-io/nats-server/v2 => github.com/nats-io/nats-server/v2 v2.1.9 // indirect
 )
+
