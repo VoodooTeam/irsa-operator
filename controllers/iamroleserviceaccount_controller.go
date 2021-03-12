@@ -213,8 +213,7 @@ func (r *IamRoleServiceAccountReconciler) reconcilerRoutine(ctx context.Context,
 		}
 	}
 
-	// all done, we'll keep watching after missing resources every 20"
-	return ctrl.Result{RequeueAfter: time.Second * 20}, nil
+	return ctrl.Result{}, nil
 }
 
 func (r *IamRoleServiceAccountReconciler) executeFinalizerIfPresent(ctx context.Context, irsa *api.IamRoleServiceAccount) completed {

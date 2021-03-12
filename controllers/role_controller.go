@@ -162,7 +162,7 @@ func (r *RoleReconciler) reconcilerRoutine(ctx context.Context, role *api.Role) 
 		_ = r.updateStatus(ctx, role, api.RoleStatus{Condition: api.CrOK})
 	}
 
-	return ctrl.Result{RequeueAfter: time.Second * 20}, nil
+	return ctrl.Result{}, nil
 }
 
 func (r *RoleReconciler) setRoleArnField(ctx context.Context, role *api.Role) completed {

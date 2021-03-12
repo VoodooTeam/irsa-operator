@@ -163,7 +163,7 @@ func (r *PolicyReconciler) reconcilerRoutine(ctx context.Context, policy *api.Po
 		_ = r.updateStatus(ctx, policy, api.PolicyStatus{Condition: api.CrOK})
 	}
 
-	return ctrl.Result{RequeueAfter: time.Second * 20}, nil
+	return ctrl.Result{}, nil
 }
 
 func (r *PolicyReconciler) executeFinalizerIfPresent(policy *api.Policy) completed {
