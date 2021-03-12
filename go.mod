@@ -5,7 +5,7 @@ go 1.15
 require (
 	cloud.google.com/go v0.79.0 // indirect
 	github.com/Azure/go-autorest/autorest v0.11.18 // indirect
-	github.com/aws/aws-sdk-go v1.37.28
+	github.com/aws/aws-sdk-go v1.37.29
 	github.com/cenkalti/backoff/v3 v3.2.2 // indirect
 	github.com/containerd/continuity v0.0.0-20200228182428-0f16d7a0959c // indirect
 	github.com/davecgh/go-spew v1.1.1
@@ -44,13 +44,14 @@ require (
 )
 
 replace (
+	github.com/apache/thrift/lib/go/thrift => github.com/apache/thrift/lib/go/thrift v0.13.0
 	github.com/miekg/dns => github.com/miekg/dns v1.1.25
+	github.com/nats-io/nats-server/v2 => github.com/nats-io/nats-server/v2 v2.1.9
 	golang.org/x/crypto => golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975 // CVE-2020-9283
 	golang.org/x/text => golang.org/x/text v0.3.3 // CVE-2018-1098
-	github.com/nats-io/nats-server/v2 => github.com/nats-io/nats-server/v2 v2.1.9
-  github.com/apache/thrift/lib/go/thrift => github.com/apache/thrift/lib/go/thrift v0.13.0
 )
 
 exclude (
   github.com/apache/thrift v0.12.0
+  github.com/aws/aws-sdk-go v1.27.0
 )
