@@ -44,6 +44,7 @@ require (
 
 replace (
 	github.com/apache/thrift/lib/go/thrift => github.com/apache/thrift/lib/go/thrift v0.13.0
+	github.com/aws/aws-sdk-go => github.com/aws/aws-sdk-go v1.37.29
 	github.com/miekg/dns => github.com/miekg/dns v1.1.25
 	github.com/nats-io/nats-server/v2 => github.com/nats-io/nats-server/v2 v2.1.9
 	golang.org/x/crypto => golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975 // CVE-2020-9283
@@ -51,7 +52,6 @@ replace (
 )
 
 exclude (
-  github.com/apache/thrift v0.12.0
-  github.com/aws/aws-sdk-go v1.27.0
+	github.com/apache/thrift v0.12.0
 	github.com/prometheus/common v0.18.0 // indirect
 )
