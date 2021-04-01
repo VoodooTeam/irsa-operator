@@ -17,25 +17,33 @@ import (
 	api "github.com/VoodooTeam/irsa-operator/api/v1alpha1"
 )
 
-func NewRoleReconciler(client client.Client, scheme *runtime.Scheme, awsrm AwsRoleManager, logger logr.Logger, cN string) *RoleReconciler {
+func NewRoleReconciler(
+	client client.Client,
+	scheme *runtime.Scheme,
+	awsrm AwsRoleManager,
+	logger logr.Logger,
+	clusterName,
+	permissionsBoundariesPolicyARN string) *RoleReconciler {
 	return &RoleReconciler{
-		Client:      client,
-		scheme:      scheme,
-		awsRM:       awsrm,
-		log:         logger,
-		finalizerID: "role.irsa.voodoo.io",
-		clusterName: cN,
+		Client:                         client,
+		scheme:                         scheme,
+		awsRM:                          awsrm,
+		log:                            logger,
+		finalizerID:                    "role.irsa.voodoo.io",
+		clusterName:                    clusterName,
+		permissionsBoundariesPolicyARN: permissionsBoundariesPolicyARN,
 	}
 }
 
 // RoleReconciler reconciles a Role object
 type RoleReconciler struct {
 	client.Client
-	log         logr.Logger
-	scheme      *runtime.Scheme
-	awsRM       AwsRoleManager
-	finalizerID string
-	clusterName string
+	log                            logr.Logger
+	scheme                         *runtime.Scheme
+	awsRM                          AwsRoleManager
+	finalizerID                    string
+	clusterName                    string
+	permissionsBoundariesPolicyARN string
 
 	TestingDelay *time.Duration
 }
@@ -136,10 +144,10 @@ func (r *RoleReconciler) reconcilerRoutine(ctx context.Context, role *api.Role) 
 
 		if roleExistsOnAws {
 			if ok := r.setRoleArnField(ctx, role); !ok {
-				return ctrl.Result{Requeue: true}, nil
+				return ctrl.Result{}, nil // updating the role leads to an automatic requeue
 			}
 		} else {
-			if ok := r.createRoleOnAws(ctx, role); !ok {
+			if ok := r.createRoleOnAws(ctx, role, r.permissionsBoundariesPolicyARN); !ok {
 				return ctrl.Result{Requeue: true}, nil
 			}
 		}
@@ -156,6 +164,11 @@ func (r *RoleReconciler) reconcilerRoutine(ctx context.Context, role *api.Role) 
 		if ok := r.attachPolicyToRoleIfNeeded(ctx, role); !ok { // we attach the policy with the role on aws
 			return ctrl.Result{Requeue: true}, nil
 		}
+	}
+
+	if role.Spec.PermissionsBoundariesPolicyArn != r.permissionsBoundariesPolicyARN {
+		// todo : add permissionsBoundariesPolicyARN equality check
+		r.log.Info("permissionsBoundariesPolicyARN changed")
 	}
 
 	if role.Status.Condition != api.CrOK {
@@ -183,8 +196,8 @@ func (r *RoleReconciler) setRoleArnField(ctx context.Context, role *api.Role) co
 	return true
 }
 
-func (r *RoleReconciler) createRoleOnAws(ctx context.Context, role *api.Role) completed {
-	if err := r.awsRM.CreateRole(*role); err != nil {
+func (r *RoleReconciler) createRoleOnAws(ctx context.Context, role *api.Role, permissionsBoundariesPolicyARN string) completed {
+	if err := r.awsRM.CreateRole(*role, permissionsBoundariesPolicyARN); err != nil {
 		r.logExtErr(err, "failed to create role on aws")
 		return false
 	}

@@ -130,7 +130,8 @@ func getInitialErrs() map[awsMethod]struct{} {
 		deleteRole,
 		roleExists,
 		getRoleARN,
-		getAttachedRolePoliciesARNs}
+		getAttachedRolePoliciesARNs,
+	}
 
 	errs := make(map[awsMethod]struct{})
 	for _, m := range methods {

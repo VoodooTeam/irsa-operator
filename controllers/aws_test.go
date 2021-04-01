@@ -143,7 +143,7 @@ func (s *awsFake) GetStatement(arn string) ([]api.StatementSpec, error) {
 	return stack.(awsStack).policy.Statement, nil
 }
 
-func (s *awsFake) CreateRole(r api.Role) error {
+func (s *awsFake) CreateRole(r api.Role, _ string) error {
 	n := r.ObjectMeta.Name
 	if err := s.shouldFailAt(n, createRole); err != nil {
 		return err
