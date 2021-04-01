@@ -76,7 +76,7 @@ func main() {
 	}
 	setupLog.Info(fmt.Sprintf("cluster name is : %s", clusterName))
 	setupLog.Info(fmt.Sprintf("oidc provider arn is : %s", oidcProviderARN))
-	if &permissionsBoundariesPolicyARN == nil {
+	if permissionsBoundariesPolicyARN == "" {
 		setupLog.Info("no permissions boundaries set, you're granting FullAdmin rights to your k8s admins")
 	} else {
 		setupLog.Info(fmt.Sprintf("permissions boundaries policy arn is : %s", permissionsBoundariesPolicyARN))
