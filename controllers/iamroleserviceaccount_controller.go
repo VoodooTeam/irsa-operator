@@ -16,8 +16,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
-	"time"
-
 	api "github.com/VoodooTeam/irsa-operator/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -37,8 +35,6 @@ type IamRoleServiceAccountReconciler struct {
 	log         logr.Logger
 	scheme      *runtime.Scheme
 	finalizerID string
-
-	TestingDelay *time.Duration
 }
 
 // +kubebuilder:rbac:groups=irsa.voodoo.io,resources=iamroleserviceaccounts,verbs=get;list;watch;create;update;delete
@@ -49,10 +45,6 @@ type IamRoleServiceAccountReconciler struct {
 // Reconcile is called each time an event occurs on an api.IamRoleServiceAccount resource
 func (r *IamRoleServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = r.log.WithValues("iamroleserviceaccount", req.NamespacedName)
-
-	{ // a processing delay can be set to ensure the testing framework sees every transitionnal state
-		r.waitIfTesting()
-	}
 
 	var irsa *api.IamRoleServiceAccount
 	{ // extract role from the request
@@ -454,12 +446,6 @@ func (r *IamRoleServiceAccountReconciler) saWithNameExistsInNs(ctx context.Conte
 func (r *IamRoleServiceAccountReconciler) updateStatus(ctx context.Context, obj *api.IamRoleServiceAccount, status api.IamRoleServiceAccountStatus) error {
 	obj.Status = status
 	return r.Status().Update(ctx, obj)
-}
-
-func (r *IamRoleServiceAccountReconciler) waitIfTesting() {
-	if r.TestingDelay != nil {
-		time.Sleep(*r.TestingDelay)
-	}
 }
 
 func (r *IamRoleServiceAccountReconciler) registerFinalizerIfNeeded(role *api.IamRoleServiceAccount) completed {

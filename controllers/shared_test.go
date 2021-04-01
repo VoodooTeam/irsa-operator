@@ -79,13 +79,11 @@ func foundIrsaInCondition(name, ns string, cond api.IrsaCondition) GomegaAsyncAs
 }
 
 func foundPolicyInCondition(name, ns string, cond api.CrCondition) GomegaAsyncAssertion {
-	obj := &api.Policy{}
-	return find(name, ns, cond, obj)
+	return find(name, ns, cond, &api.Policy{})
 }
 
 func foundRoleInCondition(name, ns string, cond api.CrCondition) GomegaAsyncAssertion {
-	obj := &api.Role{}
-	return find(name, ns, cond, obj)
+	return find(name, ns, cond, &api.Role{})
 }
 
 func getRole(name, ns string) api.Role {

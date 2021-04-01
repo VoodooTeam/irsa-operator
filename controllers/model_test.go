@@ -42,10 +42,22 @@ func run(irsaName string, wg *sync.WaitGroup) {
 	// will log in case of failure the final state and the events that lead there
 	defer func(iE map[awsMethod]struct{}) {
 		if recover() != nil {
-			log.Println(">>> inital errors :")
+			log.Println(">>>")
+			log.Println("inital errors :")
 			spew.Dump(iE)
-			log.Println(">>> ended up with stack state :")
+			log.Println("<<<")
+
+			log.Println("ended up with stack state :")
+			log.Println(">>>")
 			spew.Dump(stack)
+			log.Println("<<<")
+
+			log.Println("k8s resources")
+			log.Println(">>>")
+			spew.Dump(getRole(irsaName, testns))
+			spew.Dump(getPolicy(irsaName, testns))
+			spew.Dump(getIrsa(irsaName, testns))
+			log.Println("<<<")
 
 			GinkgoT().FailNow()
 		}

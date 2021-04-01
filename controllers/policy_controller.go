@@ -3,7 +3,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -36,8 +35,6 @@ type PolicyReconciler struct {
 
 	finalizerID string
 	clusterName string
-
-	TestingDelay *time.Duration
 }
 
 // +kubebuilder:rbac:groups=irsa.voodoo.io,resources=policies,verbs=get;list;watch;create;update;patch;delete
@@ -47,10 +44,6 @@ type PolicyReconciler struct {
 // Reconcile is called each time an event occurs on an api.Policy resource
 func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = r.log.WithValues("policy", req.NamespacedName)
-
-	{ // a processing delay can be set to ensure the testing framework sees every transitionnal state
-		r.waitIfTesting()
-	}
 
 	var policy *api.Policy
 	{ // extract policy from the request
@@ -204,11 +197,6 @@ func (r *PolicyReconciler) executeFinalizerIfPresent(policy *api.Policy) complet
 	}
 
 	return true
-}
-func (r *PolicyReconciler) waitIfTesting() {
-	if r.TestingDelay != nil {
-		time.Sleep(*r.TestingDelay)
-	}
 }
 
 // helper function to update a Policy status
