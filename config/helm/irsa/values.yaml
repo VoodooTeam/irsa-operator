@@ -1,4 +1,4 @@
 clusterName:
 roleARN: 
 oidcProviderARN:
-permissionsBoundariesPolicyARN: "''"
+permissionsBoundariesPolicyARN: ""
