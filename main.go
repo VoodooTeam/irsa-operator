@@ -47,6 +47,7 @@ func main() {
 	var probeAddr string
 	var clusterName string
 	var oidcProviderARN string
+	var permissionsBoundariesPolicyARN string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -56,6 +57,7 @@ func main() {
 
 	flag.StringVar(&clusterName, "cluster-name", "", "The cluster name, used to avoid name collisions on aws, set this to the name of the eks cluster")
 	flag.StringVar(&oidcProviderARN, "oidc-provider-arn", "", "The ARN of the oidc provider to use.")
+	flag.StringVar(&permissionsBoundariesPolicyARN, "permissions-boundaries-policy-arn", "", "The ARN of the policy used as permissions boundaries")
 
 	opts := zap.Options{
 		Development: true,
@@ -74,6 +76,11 @@ func main() {
 	}
 	setupLog.Info(fmt.Sprintf("cluster name is : %s", clusterName))
 	setupLog.Info(fmt.Sprintf("oidc provider arn is : %s", oidcProviderARN))
+	if permissionsBoundariesPolicyARN == "" {
+		setupLog.Info("no permissions boundaries set, you're granting FullAdmin rights to your k8s admins")
+	} else {
+		setupLog.Info(fmt.Sprintf("permissions boundaries policy arn is : %s", permissionsBoundariesPolicyARN))
+	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
@@ -121,6 +128,7 @@ func main() {
 		irsaws.NewAwsManager(awsCfg, ctrl.Log.WithName("controllers").WithName("Aws"), clusterName, oidcProviderARN),
 		ctrl.Log.WithName("controllers").WithName("Role"),
 		clusterName,
+		permissionsBoundariesPolicyARN,
 	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Role")
 		os.Exit(1)

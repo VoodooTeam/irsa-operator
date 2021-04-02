@@ -36,6 +36,8 @@ spec:
           spec:
             description: RoleSpec defines the desired state of Role
             properties:
+              permissionsBoundariesPolicyARN:
+                type: string
               policyarn:
                 type: string
               rolearn:

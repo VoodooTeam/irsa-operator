@@ -313,7 +313,7 @@ func (m RealAwsManager) GetAttachedRolePoliciesARNs(roleName string) ([]string, 
 	return arns, nil
 }
 
-func (m RealAwsManager) CreateRole(role api.Role) error {
+func (m RealAwsManager) CreateRole(role api.Role, permissionsBoundariesPolicyARN string) error {
 	_ = m.log.WithName("aws").WithName("role")
 
 	roleDoc, err := NewAssumeRolePolicyDoc(role, m.oidcProviderArn)
@@ -323,11 +323,16 @@ func (m RealAwsManager) CreateRole(role api.Role) error {
 	}
 
 	rn := role.AwsName(m.clusterName)
-	if _, err := m.Client.CreateRole(&iam.CreateRoleInput{
+	roleInput := &iam.CreateRoleInput{
 		RoleName:                 &rn,
 		AssumeRolePolicyDocument: &roleDoc,
 		Description:              &desc,
-	}); err != nil {
+	}
+	if permissionsBoundariesPolicyARN != "" {
+		roleInput.PermissionsBoundary = &permissionsBoundariesPolicyARN
+	}
+
+	if _, err := m.Client.CreateRole(roleInput); err != nil {
 		if reqErr, ok := err.(awserr.RequestFailure); ok {
 			if reqErr.StatusCode() == http.StatusConflict {
 				// the role already exists, we return without error

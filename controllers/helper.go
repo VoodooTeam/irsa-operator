@@ -1,6 +1,8 @@
 package controllers
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type completed bool
 
@@ -24,6 +26,33 @@ func removeString(slice []string, s string) (result []string) {
 	return
 }
 
-func (r *RoleReconciler) logExtErr(err error, msg string) {
-	r.log.Info(fmt.Sprintf("%s : %s", msg, err))
+func newMsg(msg string) Event {
+	return Event{
+		msg: msg,
+	}
+}
+
+func newErr(msg string, err error) Event {
+	return Event{
+		msg: msg,
+		err: err,
+	}
+}
+
+type Event struct {
+	msg string
+	err error
+}
+
+func (e Event) String() string {
+	if e.err != nil {
+		return fmt.Sprintf("%s (%s)", e.msg, e.err)
+	}
+	return e.msg
+}
+
+func scope(sc string) func(string) string {
+	return func(s string) string {
+		return sc + ": " + s
+	}
 }

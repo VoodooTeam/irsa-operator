@@ -28,6 +28,7 @@ func (s Statement) ToSpec() api.StatementSpec {
 
 type StatementEffect string
 
+// todo : remove this
 const (
 	StatementAllow StatementEffect = "Allow"
 	StatementDeny  StatementEffect = "Deny"

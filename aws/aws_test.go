@@ -9,6 +9,7 @@ import (
 var validPolicy = api.NewPolicy("name", "testns", []api.StatementSpec{
 	{Resource: "arn:aws:s3:::my_corporate_bucket/exampleobject.png", Action: []string{"an:action"}},
 })
+
 var _ = Describe("policy", func() {
 	It("given a valid policy", func() {
 
@@ -39,6 +40,7 @@ var _ = Describe("policy", func() {
 
 var _ = Describe("role", func() {
 	role := api.NewRole("name", "testns")
+
 	Context("given a valid role", func() {
 		It("doesn't exist yet", func() {
 			exists, err := awsmngr.RoleExists(role.AwsName(clusterName))
@@ -47,14 +49,23 @@ var _ = Describe("role", func() {
 		})
 
 		Context("creation", func() {
+			It("can create it without error without permissionsBoundariesPolicyARN", func() {
+				err := awsmngr.CreateRole(*role, "")
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		Context("creation", func() {
+			permissionsBoundariesPolicyARN := "arn:aws:iam::123456789012:policy/UsersManageOwnCredentials"
+
 			It("can create it without error", func() {
-				err := awsmngr.CreateRole(*role)
+				err := awsmngr.CreateRole(*role, permissionsBoundariesPolicyARN)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			Context("idempotency", func() {
 				It("creation is idempotent", func() {
-					err := awsmngr.CreateRole(*role)
+					err := awsmngr.CreateRole(*role, permissionsBoundariesPolicyARN)
 					Expect(err).NotTo(HaveOccurred())
 				})
 

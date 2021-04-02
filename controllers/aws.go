@@ -20,7 +20,7 @@ type AwsPolicyManager interface {
 
 type AwsRoleManager interface {
 	RoleExists(roleName string) (bool, error)
-	CreateRole(api.Role) error
+	CreateRole(role api.Role, permissionsBoundariesPolicyARN string) error
 	DeleteRole(roleName string) error
 	AttachRolePolicy(roleName, policyARN string) error
 	GetAttachedRolePoliciesARNs(roleName string) ([]string, error)

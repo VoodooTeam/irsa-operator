@@ -29,9 +29,10 @@ type awsStack struct {
 }
 
 type awsRole struct {
-	name             string
-	arn              string
-	attachedPolicies []string
+	name                           string
+	arn                            string
+	attachedPolicies               []string
+	permissionsBoundariesPolicyARN string
 }
 
 type awsMethod string
@@ -143,7 +144,7 @@ func (s *awsFake) GetStatement(arn string) ([]api.StatementSpec, error) {
 	return stack.(awsStack).policy.Statement, nil
 }
 
-func (s *awsFake) CreateRole(r api.Role) error {
+func (s *awsFake) CreateRole(r api.Role, permissionsBoundariesPolicyARN string) error {
 	n := r.ObjectMeta.Name
 	if err := s.shouldFailAt(n, createRole); err != nil {
 		return err
@@ -155,7 +156,7 @@ func (s *awsFake) CreateRole(r api.Role) error {
 	}
 
 	stack := raw.(awsStack)
-	stack.role = awsRole{name: roleName(r), arn: roleArn(r), attachedPolicies: []string{}}
+	stack.role = awsRole{name: roleName(r), arn: roleArn(r), attachedPolicies: []string{}, permissionsBoundariesPolicyARN: permissionsBoundariesPolicyARN}
 	s.stacks.Store(n, stack)
 	return nil
 }

@@ -26,3 +26,4 @@ spec:
         - "--leader-elect"
         - "--cluster-name={{ .Values.clusterName }}"
         - "--oidc-provider-arn={{ .Values.oidcProviderARN }}"
+        - "--permissions-boundaries-policy-arn={{ .Values.permissionsBoundariesPolicyARN }}"

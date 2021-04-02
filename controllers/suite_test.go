@@ -97,6 +97,7 @@ var _ = BeforeSuite(func() {
 		st,
 		ctrl.Log.WithName("controllers").WithName("role"),
 		clusterName,
+		"",
 	)
 	err = rR.SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())

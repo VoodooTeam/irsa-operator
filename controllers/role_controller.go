@@ -17,27 +17,33 @@ import (
 	api "github.com/VoodooTeam/irsa-operator/api/v1alpha1"
 )
 
-func NewRoleReconciler(client client.Client, scheme *runtime.Scheme, awsrm AwsRoleManager, logger logr.Logger, cN string) *RoleReconciler {
+func NewRoleReconciler(
+	client client.Client,
+	scheme *runtime.Scheme,
+	awsrm AwsRoleManager,
+	logger logr.Logger,
+	clusterName,
+	permissionsBoundariesPolicyARN string) *RoleReconciler {
 	return &RoleReconciler{
-		Client:      client,
-		scheme:      scheme,
-		awsRM:       awsrm,
-		log:         logger,
-		finalizerID: "role.irsa.voodoo.io",
-		clusterName: cN,
+		Client:                         client,
+		scheme:                         scheme,
+		awsRM:                          awsrm,
+		log:                            logger,
+		finalizerID:                    "role.irsa.voodoo.io",
+		clusterName:                    clusterName,
+		permissionsBoundariesPolicyARN: permissionsBoundariesPolicyARN,
 	}
 }
 
 // RoleReconciler reconciles a Role object
 type RoleReconciler struct {
 	client.Client
-	log         logr.Logger
-	scheme      *runtime.Scheme
-	awsRM       AwsRoleManager
-	finalizerID string
-	clusterName string
-
-	TestingDelay *time.Duration
+	log                            logr.Logger
+	scheme                         *runtime.Scheme
+	awsRM                          AwsRoleManager
+	finalizerID                    string
+	clusterName                    string
+	permissionsBoundariesPolicyARN string
 }
 
 // +kubebuilder:rbac:groups=irsa.voodoo.io,resources=roles,verbs=get;list;watch;create;update;patch;delete
@@ -46,10 +52,6 @@ type RoleReconciler struct {
 
 func (r *RoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = r.log.WithValues("role", req.NamespacedName)
-
-	{ // a processing delay can be set to ensure the testing framework sees every transitionnal state
-		r.waitIfTesting()
-	}
 
 	var role *api.Role
 	{ // extract role from the request
@@ -130,16 +132,16 @@ func (r *RoleReconciler) reconcilerRoutine(ctx context.Context, role *api.Role) 
 	if role.Spec.RoleARN == "" { // no arn in spec, if we find it on aws : we set the spec, otherwise : we create the AWS role
 		roleExistsOnAws, err := r.awsRM.RoleExists(role.AwsName(r.clusterName))
 		if err != nil {
-			r.logExtErr(err, "failed to check if the role exists")
+			_ = r.updateStatus(ctx, role, api.RoleStatus{Condition: role.Status.Condition, Reason: "failed to check if role exists on AWS"})
 			return ctrl.Result{Requeue: true}, nil
 		}
 
 		if roleExistsOnAws {
 			if ok := r.setRoleArnField(ctx, role); !ok {
-				return ctrl.Result{Requeue: true}, nil
+				return ctrl.Result{}, nil // updating the role leads to an automatic requeue
 			}
 		} else {
-			if ok := r.createRoleOnAws(ctx, role); !ok {
+			if ok := r.createRoleOnAws(ctx, role, r.permissionsBoundariesPolicyARN); !ok {
 				return ctrl.Result{Requeue: true}, nil
 			}
 		}
@@ -158,6 +160,11 @@ func (r *RoleReconciler) reconcilerRoutine(ctx context.Context, role *api.Role) 
 		}
 	}
 
+	//if role.Spec.PermissionsBoundariesPolicyArn != r.permissionsBoundariesPolicyARN {
+	//	// todo : add permissionsBoundariesPolicyARN equality check
+	//	r.log.Info("permissionsBoundariesPolicyARN changed")
+	//}
+
 	if role.Status.Condition != api.CrOK {
 		_ = r.updateStatus(ctx, role, api.RoleStatus{Condition: api.CrOK})
 	}
@@ -166,63 +173,68 @@ func (r *RoleReconciler) reconcilerRoutine(ctx context.Context, role *api.Role) 
 }
 
 func (r *RoleReconciler) setRoleArnField(ctx context.Context, role *api.Role) completed {
+	withScope := scope("setRoleArnField")
 	// we get the role details from aws
 	roleArn, err := r.awsRM.GetRoleARN(role.AwsName(r.clusterName))
 	if err != nil {
-		r.logExtErr(err, "failed to get role arn on aws")
+		r.addEvent(role, newMsg(withScope("failed to get role arn on aws")))
 		return false
 	}
 
 	// set the roleArn in spec
 	role.Spec.RoleARN = roleArn
 	if err := r.Update(context.Background(), role); err != nil {
-		r.logExtErr(err, "failed to set roleArn field in role")
+		r.addEvent(role, newMsg(withScope("failed to set roleArn field in role")))
 		return false
 	}
 
 	return true
 }
 
-func (r *RoleReconciler) createRoleOnAws(ctx context.Context, role *api.Role) completed {
-	if err := r.awsRM.CreateRole(*role); err != nil {
-		r.logExtErr(err, "failed to create role on aws")
+func (r *RoleReconciler) createRoleOnAws(ctx context.Context, role *api.Role, permissionsBoundariesPolicyARN string) completed {
+	if err := r.awsRM.CreateRole(*role, permissionsBoundariesPolicyARN); err != nil {
+		r.addEvent(role, newErr("failed to create roleArn on aws", err))
 		return false
 	}
 	return true
 }
 
 func (r *RoleReconciler) attachPolicyToRoleIfNeeded(ctx context.Context, role *api.Role) completed {
+	withScope := scope("attachPolicyToRoleIfNeeded")
+
 	awsRoleName := role.AwsName(r.clusterName)
 	roleAlreadyCreatedOnAws, err := r.awsRM.RoleExists(awsRoleName)
 	if err != nil {
-		r.logExtErr(err, "failed to check if the role exists")
+		r.addEvent(role, newErr(withScope("failed to check if the role exists"), err))
 		return false
 	}
 
 	if !roleAlreadyCreatedOnAws {
+		r.addEvent(role, newMsg(withScope("role not created on AWS yet")))
 		return false
 	}
 
 	// maybe the policy is already attached to it ?
 	policiesARNs, err := r.awsRM.GetAttachedRolePoliciesARNs(awsRoleName)
 	if err != nil {
-		r.logExtErr(err, "failed to retrieve attached role policies")
+		r.addEvent(role, newErr(withScope("failed to retrieve attached role policies"), err))
 		return false
 	}
 
 	for _, pARN := range policiesARNs { // iterate over found policies
 		if pARN == role.Spec.PolicyARN {
+			r.addEvent(role, newMsg(withScope("policy already attached")))
 			return true
 		}
 	}
 
 	// the policy is not attached yet
 	if err := r.awsRM.AttachRolePolicy(awsRoleName, role.Spec.PolicyARN); err != nil { // we attach the policy
-		r.logExtErr(err, "failed to attach policy to role")
+		r.addEvent(role, newErr(withScope("failed to attach policy to role"), err))
 		return false
 	}
 
-	r.log.Info("attached policy to role")
+	r.addEvent(role, newMsg(withScope("attached policy to role")))
 	return true
 }
 
@@ -345,14 +357,16 @@ func (r *RoleReconciler) getRoleFromReq(ctx context.Context, req ctrl.Request) (
 	return role, true
 }
 
-func (r *RoleReconciler) waitIfTesting() {
-	if r.TestingDelay != nil {
-		time.Sleep(*r.TestingDelay)
-	}
-}
-
 // helper function to update a Role status
 func (r *RoleReconciler) updateStatus(ctx context.Context, role *api.Role, status api.RoleStatus) error {
 	role.Status = status
 	return r.Status().Update(ctx, role)
+}
+
+func (r *RoleReconciler) addEvent(role *api.Role, e Event) {
+	_ = r.updateStatus(context.Background(), role, api.RoleStatus{Condition: role.Status.Condition, Reason: e.String()})
+}
+
+func (r *RoleReconciler) logExtErr(err error, msg string) {
+	r.log.Info(fmt.Sprintf("%s : %s", msg, err))
 }

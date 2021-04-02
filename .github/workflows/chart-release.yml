@@ -1,14 +1,11 @@
 name: Release Charts
 
-#on:
-#  push:
-#    branches: [ release ]
 on:
   push:
     paths:
       - 'config/helm/irsa/Chart.yaml'
-    branches:
-      - main
+        #    branches:
+        #      - main
 
 jobs:
   release:

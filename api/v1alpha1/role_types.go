@@ -56,10 +56,10 @@ func (r Role) IsPendingDeletion() bool {
 
 // RoleSpec defines the desired state of Role
 type RoleSpec struct {
-	ServiceAccountName string `json:"serviceAccountName"`
-
-	PolicyARN string `json:"policyarn,omitempty"`
-	RoleARN   string `json:"rolearn,omitempty"`
+	ServiceAccountName             string `json:"serviceAccountName"`
+	PolicyARN                      string `json:"policyarn,omitempty"`
+	RoleARN                        string `json:"rolearn,omitempty"`
+	PermissionsBoundariesPolicyArn string `json:"permissionsBoundariesPolicyARN,omitempty"`
 }
 
 // Validate returns an error if the RoleSpec is not valid
