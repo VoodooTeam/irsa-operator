@@ -1,3 +1,4 @@
 clusterName:
-rolearn: 
+roleARN: 
 oidcProviderARN:
+permissionsBoundariesPolicyARN: ""

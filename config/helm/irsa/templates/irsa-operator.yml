@@ -192,6 +192,8 @@ spec:
           spec:
             description: RoleSpec defines the desired state of Role
             properties:
+              permissionsBoundariesPolicyARN:
+                type: string
               policyarn:
                 type: string
               rolearn:
@@ -228,7 +230,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   annotations:
-    eks.amazonaws.com/role-arn: '{{ .Values.rolearn }}'
+    eks.amazonaws.com/role-arn: '{{ .Values.roleARN }}'
   name: irsa-operator-oidc-sa
   namespace: irsa-operator-system
 ---
@@ -489,6 +491,7 @@ spec:
         - --leader-elect
         - --cluster-name={{ .Values.clusterName }}
         - --oidc-provider-arn={{ .Values.oidcProviderARN }}
+        - --permissions-boundaries-policy-arn={{ .Values.permissionsBoundariesPolicyARN }}
         command:
         - /manager
         image: ghcr.io/voodooteam/irsa-operator:v{{ .Chart.Version }}

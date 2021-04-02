@@ -10,7 +10,7 @@ kind: ServiceAccount
 metadata:
   name: oidc-sa
   annotations:
-    eks.amazonaws.com/role-arn: '{{ .Values.rolearn }}'
+    eks.amazonaws.com/role-arn: '{{ .Values.roleARN }}'
 ---
 apiVersion: apps/v1
 kind: Deployment

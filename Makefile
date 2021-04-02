@@ -60,8 +60,6 @@ deploy: manifests kustomize
 
 gen-helm: manifests kustomize
 	$(KUSTOMIZE) build config/default > config/helm/irsa/templates/irsa-operator.yml
-	#echo version: ${CHART_VERSION} >> config/helm/Chart.yaml
-	#echo image: ${DOCKER_IMAGE}:${CHART_VERSION} >> config/helm/values.yaml
 
 # UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
 undeploy:
