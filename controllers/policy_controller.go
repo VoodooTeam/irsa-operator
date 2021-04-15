@@ -168,8 +168,12 @@ func (r *PolicyReconciler) executeFinalizerIfPresent(policy *api.Policy) complet
 
 	arn, err := r.awsPM.GetPolicyARN(policy.PathPrefix(r.clusterName), policy.AwsName(r.clusterName))
 	if err != nil {
-		r.logExtErr(err, "failed to get policy arn")
-		return false
+		if !k8serrors.IsNotFound(err) {
+			r.logExtErr(err, "failed to get policy arn")
+			return false
+		} else {
+			return true
+		}
 	}
 	if arn != "" {
 		// policy found on aws
