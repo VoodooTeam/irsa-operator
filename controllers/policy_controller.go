@@ -175,13 +175,16 @@ func (r *PolicyReconciler) executeFinalizerIfPresent(policy *api.Policy) complet
 			return true
 		}
 	}
-	if arn != "" {
-		// policy found on aws
-		if err := r.awsPM.DeletePolicy(arn); err != nil {
-			// it failed for any reason, we requeue
-			r.logExtErr(err, "failed to delete policy on aws")
-			return false
-		}
+	if arn == "" {
+		// already deleted
+		return true
+	}
+
+	// policy found on aws
+	if err := r.awsPM.DeletePolicy(arn); err != nil {
+		// it failed for any reason, we requeue
+		r.logExtErr(err, "failed to delete policy on aws")
+		return false
 	}
 
 	r.log.Info("deleting policy")
@@ -192,6 +195,7 @@ func (r *PolicyReconciler) executeFinalizerIfPresent(policy *api.Policy) complet
 			return false
 		}
 	}
+	r.log.Info("policy deleted")
 
 	// it succeeded
 	// we remove our finalizer from the list and update it.
