@@ -21,7 +21,7 @@ func NewPolicyReconciler(client client.Client, scheme *runtime.Scheme, awspm Aws
 		log:         logger,
 		scheme:      scheme,
 		awsPM:       awspm,
-		finalizerID: "role.irsa.voodoo.io",
+		finalizerID: "policy.irsa.voodoo.io",
 		clusterName: cN,
 	}
 }
