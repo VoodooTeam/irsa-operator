@@ -1,0 +1,11 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "Stmt1608740634481",
+      "Action": ["s3:*", "iam:*"],
+      "Effect": "Allow",
+      "Resource": "arn:aws:s3:::irsa-test/*"
+    }
+  ]
+}

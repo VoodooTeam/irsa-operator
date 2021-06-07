@@ -1,0 +1,88 @@
+version: '3.7'
+
+services:
+  local-registry:
+    image: registry:2
+    ports:
+      - "5000:5000" 
+    restart: unless-stopped
+
+  # AWS 
+  aws-local:
+    image: localstack/localstack:0.12.12
+    ports:
+      - "4566:4566" 
+    environment:
+      - SERVICES=iam,s3,sts
+      - DEBUG=1
+
+  # OIDC
+  hydra.local:
+    image: oryd/hydra:v1.9.0-alpha.3-sqlite
+    ports:
+      - "4444:4444" # Public port
+      - "4445:4445" # Admin port
+      - "5555:5555" # Port for hydra token user
+    environment:
+      - DSN=sqlite:///var/lib/sqlite/db.sqlite?_fk=true
+      - SERVE_TLS_KEY_PATH=/etc/config/certs/hydra.local.key
+      - SERVE_TLS_CERT_PATH=/etc/config/certs/hydra.local.crt
+    user: "${USER_ID}:${GROUP_ID}"
+    command:
+      serve -c /etc/config/hydra.yml all
+    volumes:
+      - type: volume
+        source: hydra-sqlite
+        target: /var/lib/sqlite
+        read_only: false
+      - type: bind
+        source: ./oidc-provider/hydra.yml
+        target: /etc/config/hydra.yml
+      - type: bind
+        source: ./oidc-provider/tls
+        target: /etc/config/certs
+    restart: unless-stopped
+    depends_on:
+      - hydra-migrate-db
+
+  hydra-migrate-db:
+    image: oryd/hydra:v1.9.0-alpha.3-sqlite
+    environment:
+      - DSN=sqlite:///var/lib/sqlite/db.sqlite?_fk=true
+    user: "${USER_ID}:${GROUP_ID}"
+    command:
+      migrate -c /etc/config/hydra.yml sql -e --yes 
+    volumes:
+      - type: volume
+        source: hydra-sqlite
+        target: /var/lib/sqlite
+        read_only: false
+      - type: bind
+        source: ./oidc-provider/hydra.yml
+        target: /etc/config/hydra.yml
+    restart: on-failure
+
+  hydra-add-keys:
+    image: oryd/hydra:v1.9.0-alpha.3-sqlite
+    environment:
+      - DSN=sqlite:///var/lib/sqlite/db.sqlite?_fk=true
+      - HYDRA_ADMIN_URL=https://hydra.local:4445
+    user: "${USER_ID}:${GROUP_ID}"
+    command:
+      keys import my-set /etc/pki/sa.key /etc/pki/sa.pub --skip-tls-verify
+    volumes:
+      - type: bind
+        source: ./k8s-pki
+        target: /etc/pki
+    restart: on-failure
+    depends_on:
+      - hydra.local
+
+
+volumes:
+  hydra-sqlite:
+
+networks:
+  default:
+    external:
+      name: kind

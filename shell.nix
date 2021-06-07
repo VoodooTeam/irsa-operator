@@ -15,6 +15,9 @@ let
      url = "git@github.com:VoodooTeam/nix-pkgs.git";                                
      ref = "master";                                
    }) stable;
+
+   unstable = import (builtins.fetchTarball https://nixos.org/channels/nixos-unstable/nixexprs.tar.xz) {};
+
   in                                
 
   stable.mkShell {                                
@@ -25,6 +28,7 @@ let
          nightly.gopls
          nightly.asmfmt
          nightly.errcheck
+         unstable.awscli2
         
          # operator-sdk cli
          voodoo.operator-sdk_1_3_0
