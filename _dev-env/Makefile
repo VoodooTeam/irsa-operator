@@ -1,13 +1,18 @@
 export AWS_ACCESS_KEY_ID = test
 export AWS_SECRET_ACCESS_KEY = test
 export AWS_REGION = us-east-1
-export AWS_WITH_ENDPOINT = aws --endpoint-url=http://localhost:4566
+export AWS = aws --endpoint-url=http://localhost:4566 --no-cli-pager
 export DOCKER_USER = USER_ID=$(shell id -u) GROUP_ID=$(shell id -g) 
 
-.PHONY: all start_kind start_docker_compose register_oidc check getOidcProvider wait_for_localstack 
-.PHONY: start tear_down docker_build_push local_deploy
+.PHONY: all start tear_down 
+.PHONY: start_kind start_docker_compose register_oidc check getOidcProvider wait_for_localstack 
+.PHONY: docker_build docker_push docker_build_push local_deploy
 
-all: start docker_build_push local_deploy
+all: start docker_build_push local_deploy test_irsa 
+start: start_kind start_docker_compose wait_for_localstack register_oidc
+
+test_irsa:
+	kubectl apply -f ./test-irsa.yml
 
 start_kind:
 	$(info == STARTING KIND CLUSTER ==)
@@ -18,34 +23,39 @@ start_kind:
 
 start_docker_compose:
 	$(info == STARTING DOCKER-COMPOSE ==)
-	${DOCKER_USER} docker-compose up -d 
+	$(DOCKER_USER) docker-compose up -d 
 
 register_oidc:
 	$(info == REGISTERING OPENID CONNECT PROVIDER ==)
-	${AWS_WITH_ENDPOINT} --no-cli-pager iam create-open-id-connect-provider --url https://hydra.local:4444 --client-id-list sts.amazonaws.com --thumbprint-list $(shell ./get-hydra-thumbprint.sh) 
+	$(AWS) iam \
+		create-open-id-connect-provider --url https://hydra.local:4444 --client-id-list sts.amazonaws.com --thumbprint-list \
+		$(shell openssl s_client -connect localhost:4444 < /dev/null 2>/dev/null | openssl x509 -fingerprint -noout -in /dev/stdin | sed 's/.*=\|://g') 
 
 check:
 	$(info == CHECKING OPENID CONNECT PROVIDERS ==)
-	${AWS_WITH_ENDPOINT} --no-cli-pager iam list-open-id-connect-providers
+	$(AWS) iam list-open-id-connect-providers
 
 getOidcProvider:
-	${AWS_WITH_ENDPOINT} --no-cli-pager iam list-open-id-connect-providers | jq -r '.OpenIDConnectProviderList[0].Arn' 
+	$(AWS) iam list-open-id-connect-providers | jq -r '.OpenIDConnectProviderList[0].Arn' 
 
 wait_for_localstack:
 	$(info == WAITING FOR LOCALSTACK ==)
-	./wait-for-localstack.sh
-	$(info == localstack ready ==)
+	until $(AWS) sts get-caller-identity > /dev/null 2>&1; do \
+		sleep 1; \
+	done
 
-start: start_kind start_docker_compose wait_for_localstack register_oidc
-
-docker_build_push:
+docker_build:
 	$(info == BUILDING OPERATOR DOCKER IMAGE ==)
 	docker build -t localhost:5000/irsa-operator ..
+
+docker_push:
 	$(info == PUSHING OPERATOR IMAGE TO LOCAL REGISTRY ==)
 	docker push localhost:5000/irsa-operator
 
+docker_build_push: docker_build docker_push
+
 local_deploy:
-	OIDC=$$(${AWS_WITH_ENDPOINT} --no-cli-pager iam list-open-id-connect-providers | jq -r '.OpenIDConnectProviderList[0].Arn'); \
+	OIDC=$$($(AWS) iam list-open-id-connect-providers | jq -r '.OpenIDConnectProviderList[0].Arn'); \
 	kustomize build ../config/default | \
 		CONTROLLER_IMG=localhost:5000/irsa-operator:latest \
 		ROLE_ARN=not-applicable \
@@ -55,5 +65,5 @@ local_deploy:
 clean:
 	$(info == TEARING DOWN ==)
 	kind delete clusters irsa-operator
-	${DOCKER_USER} docker-compose down
+	$(DOCKER_USER) docker-compose down
 	sudo rm -rf ./k8s-pki

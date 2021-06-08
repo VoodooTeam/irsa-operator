@@ -1,0 +1,31 @@
+apiVersion: irsa.voodoo.io/v1alpha1
+kind: IamRoleServiceAccount
+metadata:
+  name: s3put 
+spec:
+  policy: 
+    statement:
+      - resource: "arn:aws:s3:::test-irsa"
+        action:
+          - "s3:Get*"
+          - "s3:List*"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: s3test
+spec:
+  selector:
+    matchLabels:
+      app: s3test
+  template:
+    metadata:
+      labels:
+        app: s3test
+    spec:
+      serviceAccountName: s3put
+      containers:
+      - image: amazon/aws-cli
+        name: aws-cli
+        command: ["aws", "s3", "ls", "test-irsa"]
+
