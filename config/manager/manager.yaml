@@ -31,7 +31,7 @@ spec:
     spec:
       serviceAccountName: irsa-operator-oidc-sa
       securityContext:
-        runAsUser: 65532
+        #runAsUser: 65532
         fsGroup: 1234
       containers:
       - command:
@@ -41,6 +41,9 @@ spec:
         image: $CONTROLLER_IMG
         name: manager
         imagePullPolicy: Always
+        env:
+          - value: $LOCALSTACK_ENDPOINT
+            name: LOCALSTACK_ENDPOINT
         securityContext:
           allowPrivilegeEscalation: false
         livenessProbe:

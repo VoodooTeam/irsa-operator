@@ -5,11 +5,15 @@ export AWS = aws --endpoint-url=http://localhost:4566 --no-cli-pager
 export DOCKER_USER = USER_ID=$(shell id -u) GROUP_ID=$(shell id -g) 
 
 .PHONY: all start tear_down 
-.PHONY: start_kind start_docker_compose register_oidc check getOidcProvider wait_for_localstack 
-.PHONY: docker_build docker_push docker_build_push local_deploy
+.PHONY: start_kind start_docker_compose register_oidc check wait_for_localstack deploy_webhook
+.PHONY: docker_build docker_push docker_build_push local_deploy update_operator restart_operator
 
-all: start docker_build_push local_deploy test_irsa 
-start: start_kind start_docker_compose wait_for_localstack register_oidc
+all: clean start docker_build_push local_deploy test_irsa 
+start: start_kind start_docker_compose wait_for_localstack register_oidc deploy_webhook
+update_operator: docker_build_push local_deploy restart_operator
+
+restart_operator: 
+	kubectl delete po -n irsa-operator-system --all
 
 test_irsa:
 	kubectl apply -f ./test-irsa.yml
@@ -35,9 +39,6 @@ check:
 	$(info == CHECKING OPENID CONNECT PROVIDERS ==)
 	$(AWS) iam list-open-id-connect-providers
 
-getOidcProvider:
-	$(AWS) iam list-open-id-connect-providers | jq -r '.OpenIDConnectProviderList[0].Arn' 
-
 wait_for_localstack:
 	$(info == WAITING FOR LOCALSTACK ==)
 	until $(AWS) sts get-caller-identity > /dev/null 2>&1; do \
@@ -54,12 +55,16 @@ docker_push:
 
 docker_build_push: docker_build docker_push
 
+deploy_webhook:
+	./webhook/deploy.sh
+
 local_deploy:
 	OIDC=$$($(AWS) iam list-open-id-connect-providers | jq -r '.OpenIDConnectProviderList[0].Arn'); \
 	kustomize build ../config/default | \
 		CONTROLLER_IMG=localhost:5000/irsa-operator:latest \
 		ROLE_ARN=not-applicable \
 		CLUSTER_NAME=kind-cluster \
+		LOCALSTACK_ENDPOINT=http://aws-local:4566 \
 		OIDC_PROVIDER_ARN=$$OIDC envsubst | kubectl apply -f -
 
 clean:
