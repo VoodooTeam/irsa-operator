@@ -16,8 +16,6 @@ let
      ref = "master";                                
    }) stable;
 
-   unstable = import (builtins.fetchTarball https://nixos.org/channels/nixos-unstable/nixexprs.tar.xz) {};
-
   in                                
 
   stable.mkShell {                                
@@ -28,7 +26,7 @@ let
          nightly.gopls
          nightly.asmfmt
          nightly.errcheck
-         unstable.awscli2
+         stable.envsubst
         
          # operator-sdk cli
          voodoo.operator-sdk_1_3_0

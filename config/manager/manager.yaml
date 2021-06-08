@@ -10,7 +10,7 @@ kind: ServiceAccount
 metadata:
   name: oidc-sa
   annotations:
-    eks.amazonaws.com/role-arn: '{{ .Values.roleARN }}'
+    eks.amazonaws.com/role-arn: $ROLE_ARN 
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -38,7 +38,7 @@ spec:
         - /manager
         args:
         - --leader-elect
-        image: ghcr.io/voodooteam/irsa-operator:v{{ .Chart.Version }}
+        image: $CONTROLLER_IMG
         name: manager
         imagePullPolicy: Always
         securityContext:
