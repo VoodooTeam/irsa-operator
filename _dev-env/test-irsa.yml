@@ -27,5 +27,4 @@ spec:
       containers:
       - image: amazon/aws-cli
         name: aws-cli
-        command: ["aws", "--endpoint-url", "http://aws-local:4566", "s3", "ls", "test-irsa"]
-
+        command: ["bash", "-c", "aws --endpoint-url=http://aws-local:4566 sts assume-role-with-web-identity --role-arn $AWS_ROLE_ARN  --role-session-name test --web-identity-token file://$AWS_WEB_IDENTITY_TOKEN_FILE"]
