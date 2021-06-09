@@ -27,8 +27,5 @@ spec:
       containers:
       - image: amazon/aws-cli
         name: aws-cli
-        env:
-          - name: AWS_ENDPOINT
-            value: https://aws-local:4566
-        command: ["aws", "s3", "ls", "test-irsa"]
+        command: ["aws", "--endpoint-url", "http://aws-local:4566", "s3", "ls", "test-irsa"]
 

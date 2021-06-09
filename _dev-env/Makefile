@@ -9,8 +9,10 @@ export DOCKER_USER = USER_ID=$(shell id -u) GROUP_ID=$(shell id -g)
 .PHONY: docker_build docker_push docker_build_push local_deploy update_operator restart_operator
 
 all: clean start docker_build_push local_deploy test_irsa 
-start: start_kind start_docker_compose wait_for_localstack register_oidc deploy_webhook
+start: start_kind gen_oidc_certs start_docker_compose wait_for_localstack register_oidc deploy_webhook
 update_operator: docker_build_push local_deploy restart_operator
+
+CERT_FOLDER=./oidc-provider/tls
 
 restart_operator: 
 	kubectl delete po -n irsa-operator-system --all
@@ -23,7 +25,15 @@ start_kind:
 	sudo rm -rf ./k8s-pki
 	mkdir ./k8s-pki
 	kind create cluster --config ./kind-config.yml
-	sudo chmod 644 ./k8s-pki/sa.* 
+	sudo chmod 644 ./k8s-pki/* 
+
+gen_oidc_certs:
+	rm -rf $(CERT_FOLDER)
+	mkdir $(CERT_FOLDER)
+	# this will be used for Ory's mandatory TLS certs (we use a private key from k8s so they've a common CA)
+	cp ./k8s-pki/sa.key $(CERT_FOLDER)/hydra.local.key
+	openssl req -new -config ./oidc-provider/conf -key ./k8s-pki/sa.key -out $(CERT_FOLDER)/hydra.local.csr
+	openssl x509 -req -days 365 -in $(CERT_FOLDER)/hydra.local.csr -signkey ./k8s-pki/sa.key -out $(CERT_FOLDER)/hydra.local.crt
 
 start_docker_compose:
 	$(info == STARTING DOCKER-COMPOSE ==)
