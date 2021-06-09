@@ -18,7 +18,7 @@ containerdConfigPatches:
 
 nodes:
 - role: control-plane
-  image: kindest/node:v1.18.19
+  image: kindest/node:v1.20.7
   extraMounts:
   - hostPath: ./k8s-pki/
     containerPath: /etc/kubernetes/pki

@@ -13,4 +13,4 @@ ST = Brittany
 C = FR
 
 [ req_ext ]
-subjectAltName = DNS: hydra.local
+subjectAltName = DNS: hydra.local, DNS: pod-identity-webhook.default.svc, DNS: pod-identity-webhook
