@@ -25,15 +25,14 @@ start_kind:
 	sudo rm -rf ./k8s-pki
 	mkdir ./k8s-pki
 	kind create cluster --config ./kind-config.yml
-	sudo chmod 644 ./k8s-pki/* 
+	sudo chmod 644 ./k8s-pki/sa.*
 
 gen_oidc_certs:
 	rm -rf $(CERT_FOLDER)
 	mkdir $(CERT_FOLDER)
-	# this will be used for Ory's mandatory TLS certs (we use a private key from k8s so they've a common CA)
-	cp ./k8s-pki/sa.key $(CERT_FOLDER)/hydra.local.key
-	openssl req -new -config ./oidc-provider/conf -key ./k8s-pki/sa.key -out $(CERT_FOLDER)/hydra.local.csr
-	openssl x509 -req -days 365 -in $(CERT_FOLDER)/hydra.local.csr -signkey ./k8s-pki/sa.key -out $(CERT_FOLDER)/hydra.local.crt
+	openssl genrsa -out $(CERT_FOLDER)/hydra.local.key 2048
+	openssl req -new -config ./oidc-provider/csr.conf -key $(CERT_FOLDER)/hydra.local.key -out $(CERT_FOLDER)/hydra.local.csr
+	openssl x509 -req -days 365 -in $(CERT_FOLDER)/hydra.local.csr -signkey $(CERT_FOLDER)/hydra.local.key -out $(CERT_FOLDER)/hydra.local.crt
 
 start_docker_compose:
 	$(info == STARTING DOCKER-COMPOSE ==)
