@@ -140,6 +140,13 @@ type PolicyStatus struct {
 	Reason    string      `json:"reason,omitempty"`
 }
 
+func NewPolicyStatus(condition CrCondition, reason string) PolicyStatus {
+	return PolicyStatus{
+		Condition: condition,
+		Reason:    reason,
+	}
+}
+
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 

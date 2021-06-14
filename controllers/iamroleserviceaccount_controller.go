@@ -187,7 +187,7 @@ func (r *IamRoleServiceAccountReconciler) executeFinalizerIfPresent(ctx context.
 		sa := &corev1.ServiceAccount{}
 		if err := r.Get(ctx, types.NamespacedName{Namespace: irsa.ObjectMeta.Namespace, Name: irsa.ObjectMeta.Name}, sa); err != nil {
 			if !k8serrors.IsNotFound(err) {
-				r.logExtErr(irsa, "get sa", err)
+				r.controllerErrLog(irsa, "get sa", err)
 				return false
 			}
 		}
@@ -203,7 +203,7 @@ func (r *IamRoleServiceAccountReconciler) executeFinalizerIfPresent(ctx context.
 
 			if owned { // we delete the service account
 				if err := r.Delete(ctx, sa); err != nil && !k8serrors.IsNotFound(err) {
-					r.logExtErr(irsa, "delete sa", err)
+					r.controllerErrLog(irsa, "delete sa", err)
 					return false
 				}
 			}
@@ -212,7 +212,7 @@ func (r *IamRoleServiceAccountReconciler) executeFinalizerIfPresent(ctx context.
 
 	{ // delete the irsa CR
 		if err := r.Delete(ctx, irsa); err != nil && !k8serrors.IsNotFound(err) {
-			r.logExtErr(irsa, "delete irsa", err)
+			r.controllerErrLog(irsa, "delete irsa", err)
 			return false
 		}
 	}
@@ -220,7 +220,7 @@ func (r *IamRoleServiceAccountReconciler) executeFinalizerIfPresent(ctx context.
 	{ // we remove our finalizer from the list and update it.
 		irsa.ObjectMeta.Finalizers = removeString(irsa.ObjectMeta.Finalizers, r.finalizerID)
 		if err := r.Update(context.Background(), irsa); err != nil {
-			r.logExtErr(irsa, "remove the finalizer", err)
+			r.controllerErrLog(irsa, "remove the finalizer", err)
 			return false
 		}
 	}
@@ -278,14 +278,14 @@ func (r *IamRoleServiceAccountReconciler) createPolicy(ctx context.Context, irsa
 
 	{ // set this irsa instance as the owner of this role
 		if err := ctrl.SetControllerReference(irsa, newPolicy, r.scheme); err != nil { // another resource is already the owner...
-			r.logExtErr(irsa, "set the controller reference", err)
+			r.controllerErrLog(irsa, "set the controller reference", err)
 			return false
 		}
 	}
 
 	{ // create the policy resource
 		if err := r.Client.Create(ctx, newPolicy); err != nil { // we create it, requeue
-			r.logExtErr(irsa, "create policy", err)
+			r.controllerErrLog(irsa, "create policy", err)
 			return false
 		}
 	}
@@ -302,7 +302,7 @@ func (r *IamRoleServiceAccountReconciler) updatePolicyIfNeeded(ctx context.Conte
 
 	policy.Spec.Statement = irsa.Spec.Policy.Statement
 	if err := r.Client.Update(ctx, policy); err != nil { // we update it
-		r.logExtErr(irsa, "create policy", err)
+		r.controllerErrLog(irsa, "create policy", err)
 		return false
 	}
 
@@ -318,13 +318,13 @@ func (r *IamRoleServiceAccountReconciler) createRole(ctx context.Context, irsa *
 
 	// set this irsa instance as the owner of this role
 	if err := ctrl.SetControllerReference(irsa, role, r.scheme); err != nil { // another resource is already the owner...
-		r.logExtErr(irsa, "set controller reference", err)
+		r.controllerErrLog(irsa, "set controller reference", err)
 		return false
 	}
 
 	// then we create the role on k8s
 	if err := r.Client.Create(ctx, role); err != nil {
-		r.logExtErr(irsa, "create role", err)
+		r.controllerErrLog(irsa, "create role", err)
 		return false
 	}
 
@@ -338,7 +338,7 @@ func (r *IamRoleServiceAccountReconciler) createServiceAccount(ctx context.Conte
 			if k8s.IsNotFound(err) {
 				return false
 			} else { // something went wrong, requeue
-				r.logExtErr(irsa, "get resource", err)
+				r.controllerErrLog(irsa, "get resource", err)
 				return false
 			}
 		}
@@ -361,13 +361,13 @@ func (r *IamRoleServiceAccountReconciler) createServiceAccount(ctx context.Conte
 
 		// set the current iamroleserviceaccount as the owner
 		if err := ctrl.SetControllerReference(irsa, newServiceAccount, r.scheme); err != nil { // another resource is already the owner...
-			r.logExtErr(irsa, "set controller reference", err)
+			r.controllerErrLog(irsa, "set controller reference", err)
 			return false
 		}
 
 		// then actually create the serviceAccount
 		if err := r.Client.Create(ctx, newServiceAccount); err != nil { // we create it, requeue
-			r.logExtErr(irsa, "create sa", err)
+			r.controllerErrLog(irsa, "create sa", err)
 			return false
 		}
 	}
@@ -386,18 +386,17 @@ func (r *IamRoleServiceAccountReconciler) updateStatus(ctx context.Context, obj 
 }
 
 func (r *IamRoleServiceAccountReconciler) registerFinalizerIfNeeded(role *api.IamRoleServiceAccount) bool {
-	if !containsString(role.ObjectMeta.Finalizers, r.finalizerID) {
-		// the finalizer isn't registered yet
+	if !containsString(role.ObjectMeta.Finalizers, r.finalizerID) { // the finalizer isn't registered yet
 		// we add it to the irsa
 		role.ObjectMeta.Finalizers = append(role.ObjectMeta.Finalizers, r.finalizerID)
 		if err := r.Update(context.Background(), role); err != nil {
-			r.logExtErr(role, "set finalizer", err)
+			r.controllerErrLog(role, "set finalizer", err)
 			return false
 		}
 	}
 	return true
 }
 
-func (r *IamRoleServiceAccountReconciler) logExtErr(resource fullNamer, msg string, err error) {
+func (r *IamRoleServiceAccountReconciler) controllerErrLog(resource fullNamer, msg string, err error) {
 	r.log.Info(fmt.Sprintf("[%s] : Failed to %s : %s", resource.FullName(), msg, err))
 }

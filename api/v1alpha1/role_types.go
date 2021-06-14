@@ -81,6 +81,13 @@ type RoleStatus struct {
 	Reason    string      `json:"reason,omitempty"`
 }
 
+func NewRoleStatus(condition CrCondition, reason string) RoleStatus {
+	return RoleStatus{
+		Condition: condition,
+		Reason:    reason,
+	}
+}
+
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
