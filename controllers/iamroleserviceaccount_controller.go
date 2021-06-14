@@ -217,15 +217,9 @@ func (r *IamRoleServiceAccountReconciler) executeFinalizerIfPresent(ctx context.
 		}
 	}
 
-	{ // we remove our finalizer from the list and update it.
-		irsa.ObjectMeta.Finalizers = removeString(irsa.ObjectMeta.Finalizers, r.finalizerID)
-		if err := r.Update(context.Background(), irsa); err != nil {
-			r.controllerErrLog(irsa, "remove the finalizer", err)
-			return false
-		}
-	}
-
-	return true
+	// we remove the finalizer
+	irsa.ObjectMeta.Finalizers = removeString(irsa.ObjectMeta.Finalizers, r.finalizerID)
+	return r.Update(context.Background(), irsa) == nil
 }
 
 func (r *IamRoleServiceAccountReconciler) getIrsaFromReq(ctx context.Context, req ctrl.Request) (*api.IamRoleServiceAccount, bool) {

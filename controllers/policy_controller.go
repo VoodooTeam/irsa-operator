@@ -95,14 +95,14 @@ func (r *PolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 //
 
 // admissionStep does spec validation
-func (r *PolicyReconciler) admissionStep(ctx context.Context, policy *api.Policy) (ctrl.Result, error) {
-	if err := policy.Validate(r.clusterName); err != nil { // the policy spec is not valid
-		ok := r.updateStatus(ctx, policy, api.NewPolicyStatus(api.CrError, err.Error()))
+func (r *PolicyReconciler) admissionStep(ctx context.Context, p *api.Policy) (ctrl.Result, error) {
+	if err := p.Validate(r.clusterName); err != nil { // the policy spec is not valid
+		ok := r.updateStatus(ctx, p, api.NewPolicyStatus(api.CrError, err.Error()))
 		return ctrl.Result{Requeue: !ok}, nil
 	}
 
-	// update the role to "progressing"
-	ok := r.updateStatus(ctx, policy, api.NewPolicyStatus(api.CrProgressing, "passed validation"))
+	// update the role status to "progressing"
+	ok := r.updateStatus(ctx, p, api.NewPolicyStatus(api.CrProgressing, "passed validation"))
 	return ctrl.Result{Requeue: !ok}, nil
 }
 
@@ -157,11 +157,11 @@ func (r *PolicyReconciler) executeFinalizerIfPresent(ctx context.Context, policy
 	}
 
 	if policy.Spec.ARN == "" { // the operator hasn't created the policy yet, all done
-		return true
+		return r.removeFinalizer(ctx, policy)
 	}
 
 	if exists, err := r.awsPM.PolicyExists(policy.Spec.ARN); !exists && err == nil { // policy already deleted, all done
-		return true
+		return r.removeFinalizer(ctx, policy)
 	}
 
 	// delete the policy on AWS
@@ -171,23 +171,23 @@ func (r *PolicyReconciler) executeFinalizerIfPresent(ctx context.Context, policy
 	}
 
 	{ // let's delete the policy (k8s resource) itself
-		if err := r.Delete(context.TODO(), policy); err != nil {
-			if !k8serrors.IsNotFound(err) {
-				r.controllerErrLog(policy, "delete policy", err)
-				return false
-			}
+		if err := r.Delete(ctx, policy); err != nil && !k8serrors.IsNotFound(err) {
+			r.controllerErrLog(policy, "delete policy", err)
+			return false
 		}
 	}
 
-	// remove the finalizer from the list and update it.
-	policy.ObjectMeta.Finalizers = removeString(policy.ObjectMeta.Finalizers, r.finalizerID)
-	return r.Update(context.Background(), policy) == nil
+	return r.removeFinalizer(ctx, policy)
 }
 
-// helper function to update a Policy status
-func (r *PolicyReconciler) updateStatus(ctx context.Context, Policy *api.Policy, status api.PolicyStatus) bool {
-	Policy.Status = status
-	return r.Status().Update(ctx, Policy) == nil
+func (r *PolicyReconciler) removeFinalizer(ctx context.Context, p *api.Policy) bool {
+	p.ObjectMeta.Finalizers = removeString(p.ObjectMeta.Finalizers, r.finalizerID)
+	return r.Update(ctx, p) == nil
+}
+
+func (r *PolicyReconciler) updateStatus(ctx context.Context, p *api.Policy, status api.PolicyStatus) bool {
+	p.Status = status
+	return r.Status().Update(ctx, p) == nil
 }
 
 func (r *PolicyReconciler) registerFinalizerIfNeeded(role *api.Policy) (completed bool) {

@@ -167,7 +167,7 @@ func (m RealAwsManager) DeletePolicy(policyARN string) error {
 	if _, err := m.Client.GetPolicy(&iam.GetPolicyInput{PolicyArn: &policyARN}); err != nil {
 		if reqErr, ok := err.(awserr.RequestFailure); ok {
 			if reqErr.StatusCode() == http.StatusNotFound {
-				// already created, nothing to do
+				// already deleted, nothing to do
 				m.log.Info("policy doesnt exists on aws")
 				return nil
 			}

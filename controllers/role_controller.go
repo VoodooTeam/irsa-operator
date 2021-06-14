@@ -124,12 +124,14 @@ func (r *RoleReconciler) reconcilerRoutine(ctx context.Context, role *api.Role) 
 
 		if roleExistsOnAws {
 			if ok := r.setRoleArnField(ctx, role); !ok {
+				r.updateStatus(ctx, role, api.NewRoleStatus(api.CrProgressing, "role found on AWS"))
 				return ctrl.Result{}, nil // updating the role leads to an automatic requeue
 			}
 		} else {
 			if ok := r.createRoleOnAws(ctx, role, r.permissionsBoundariesPolicyARN); !ok {
 				return ctrl.Result{Requeue: true}, nil
 			}
+			r.updateStatus(ctx, role, api.NewRoleStatus(api.CrProgressing, "role created on AWS"))
 		}
 	}
 
@@ -137,10 +139,9 @@ func (r *RoleReconciler) reconcilerRoutine(ctx context.Context, role *api.Role) 
 		if ok := r.setPolicyArnFieldIfPossible(ctx, role); !ok { // we try to grab it from the policy resource and set it
 			return ctrl.Result{Requeue: true}, nil
 		}
+		r.updateStatus(ctx, role, api.NewRoleStatus(api.CrProgressing, "policy found on AWS"))
 		return ctrl.Result{Requeue: true}, nil
-	}
-
-	if role.Spec.PolicyARN != "" { // the role already has a policyARN in Spec
+	} else { // the role already has a policyARN in Spec
 		if ok := r.attachPolicyToRoleIfNeeded(ctx, role); !ok { // we attach the policy with the role on aws
 			return ctrl.Result{Requeue: true}, nil
 		}
@@ -211,7 +212,7 @@ func (r *RoleReconciler) attachPolicyToRoleIfNeeded(ctx context.Context, role *a
 		return false
 	}
 
-	r.updateStatus(ctx, role, api.NewRoleStatus(role.Status.Condition, "attached policy to role"))
+	r.updateStatus(ctx, role, api.NewRoleStatus(api.CrProgressing, "policy attached to role"))
 	return true
 }
 
