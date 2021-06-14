@@ -4,7 +4,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 
@@ -153,18 +152,11 @@ func main() {
 }
 
 func getAwsConfig() *session.Session {
-	// todo, outdated
-	islocalTesting := false
-	if os.Getenv("LOCAL_TEST") != "" {
-		islocalTesting = true
-	}
+	localstackEndpoint := os.Getenv("LOCALSTACK_ENDPOINT")
 
-	if islocalTesting {
-		log.Println("using localstack, will try to connect at 172.17.0.1:4566")
-
-		localStackEndpoint := "http://172.17.0.1:4566"
-		_, err := http.Get(localStackEndpoint)
-		if err != nil {
+	if localstackEndpoint != "" {
+		setupLog.Info(fmt.Sprintf("using localstack at : %s", localstackEndpoint))
+		if _, err := http.Get(localstackEndpoint); err != nil { // we check connectivity
 			panic(err)
 		}
 
@@ -172,7 +164,7 @@ func getAwsConfig() *session.Session {
 			Credentials: credentials.NewStaticCredentials("test", "test", ""),
 			DisableSSL:  aws.Bool(true),
 			Region:      aws.String(endpoints.UsWest1RegionID),
-			Endpoint:    aws.String(localStackEndpoint),
+			Endpoint:    aws.String(localstackEndpoint),
 		}))
 	}
 
