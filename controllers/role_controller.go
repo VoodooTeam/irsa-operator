@@ -51,8 +51,6 @@ type RoleReconciler struct {
 // +kubebuilder:rbac:groups=irsa.voodoo.io,resources=roles/finalizers,verbs=update
 
 func (r *RoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = r.log.WithValues("role", req.NamespacedName)
-
 	var role *api.Role
 	{ // extract role from the request
 		var ok completed
@@ -106,33 +104,22 @@ func (r *RoleReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // admissionStep does spec validation
 func (r *RoleReconciler) admissionStep(ctx context.Context, role *api.Role) (ctrl.Result, error) {
-	r.log.Info("admissionStep")
-
 	if err := role.Validate(r.clusterName); err != nil { // the role spec is invalid
-		r.log.Info("invalid spec, passing status to failed")
-		if err := r.updateStatus(ctx, role, api.RoleStatus{Condition: api.CrFailed, Reason: err.Error()}); err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{}, nil
+		ok := r.updateStatus(ctx, role, api.RoleStatus{Condition: api.CrError, Reason: err.Error()})
+		return ctrl.Result{Requeue: !ok}, nil
 	}
 
 	// update the role to "pending"
-	if err := r.updateStatus(ctx, role, api.RoleStatus{Condition: api.CrPending, Reason: "passed validation"}); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	r.log.Info("successfully set role status to pending")
-	return ctrl.Result{}, nil
+	ok := r.updateStatus(ctx, role, api.RoleStatus{Condition: api.CrProgressing, Reason: "passed validation"})
+	return ctrl.Result{Requeue: !ok}, nil
 }
 
 // reconcilerRoutine is an infinite loop attempting to make the aws IAM role, with it's attachment converge to the role.Spec
 func (r *RoleReconciler) reconcilerRoutine(ctx context.Context, role *api.Role) (ctrl.Result, error) {
-	r.log.Info("reconciler routine")
-
 	if role.Spec.RoleARN == "" { // no arn in spec, if we find it on aws : we set the spec, otherwise : we create the AWS role
 		roleExistsOnAws, err := r.awsRM.RoleExists(role.AwsName(r.clusterName))
 		if err != nil {
-			_ = r.updateStatus(ctx, role, api.RoleStatus{Condition: role.Status.Condition, Reason: "failed to check if role exists on AWS"})
+			r.updateStatus(ctx, role, api.RoleStatus{Condition: api.CrError, Reason: "failed to check if role exists on AWS"})
 			return ctrl.Result{Requeue: true}, nil
 		}
 
@@ -309,7 +296,6 @@ func (r *RoleReconciler) executeFinalizerIfPresent(role *api.Role) completed {
 		return false
 	}
 
-	r.log.Info("deleting role")
 	// let's delete the role itself
 	if err := r.Delete(context.TODO(), role); err != nil {
 		if !k8serrors.IsNotFound(err) {
@@ -358,9 +344,9 @@ func (r *RoleReconciler) getRoleFromReq(ctx context.Context, req ctrl.Request) (
 }
 
 // helper function to update a Role status
-func (r *RoleReconciler) updateStatus(ctx context.Context, role *api.Role, status api.RoleStatus) error {
+func (r *RoleReconciler) updateStatus(ctx context.Context, role *api.Role, status api.RoleStatus) bool {
 	role.Status = status
-	return r.Status().Update(ctx, role)
+	return r.Status().Update(ctx, role) == nil
 }
 
 func (r *RoleReconciler) addEvent(role *api.Role, e Event) {
