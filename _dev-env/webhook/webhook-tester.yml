@@ -1,0 +1,22 @@
+# when you create these resources, AWS related env vars must be injected in the pod automatically
+# otherwise it means the webhook doesn't work (it's another project, but the irsa-operator relies on this mechanism)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: webhook-tester-sa
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::000000000000:role/my-app-role
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: webhook-tester
+  name: webhook-tester
+spec:
+  serviceAccountName: webhook-tester-sa
+  containers:
+  - image: praqma/network-multitool
+    name: webhook-tester
+  restartPolicy: Always
+

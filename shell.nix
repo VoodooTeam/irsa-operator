@@ -5,16 +5,17 @@ let
       sha256 = "1wg61h4gndm3vcprdcg7rc4s1v3jkm5xd7lw8r2f67w502y94gcy";                                
    }) {};                                
 
+   voodoo = import (builtins.fetchGit {                                
+     url = "git@github.com:VoodooTeam/nix-pkgs.git";                                
+     ref = "master";                                
+   }) stable;
+
    nightly = import (builtins.fetchTarball {                                
      name = "nixos-nightly-2020-12-02";                                
      url = "https://github.com/NixOS/nixpkgs/archive/b6bca3d80619f1565ba0ea635b0d38234e41c6bd.tar.gz";                                
      sha256 = "09d4f6h98rmxnxzm1x07jxgrc81k6mz7fjigq375fkmb41j2kdsi";                                
    }) {};
 
-   voodoo = import (builtins.fetchGit {                                
-     url = "git@github.com:VoodooTeam/nix-pkgs.git";                                
-     ref = "master";                                
-   }) stable;
   in                                
 
   stable.mkShell {                                
@@ -39,7 +40,7 @@ let
          stable.curl
          stable.jq
          stable.gnumake
-         stable.cfssl
+         stable.envsubst
      ];                                
   }      
 

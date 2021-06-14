@@ -24,6 +24,6 @@ spec:
         - "--health-probe-bind-address=:8081"
         - "--metrics-bind-address=127.0.0.1:8080"
         - "--leader-elect"
-        - "--cluster-name={{ .Values.clusterName }}"
-        - "--oidc-provider-arn={{ .Values.oidcProviderARN }}"
-        - "--permissions-boundaries-policy-arn={{ .Values.permissionsBoundariesPolicyARN }}"
+        - --cluster-name=$CLUSTER_NAME
+        - "--oidc-provider-arn=$OIDC_PROVIDER_ARN"
+        - "--permissions-boundaries-policy-arn="
