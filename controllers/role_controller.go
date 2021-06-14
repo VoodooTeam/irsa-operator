@@ -257,16 +257,21 @@ func (r *RoleReconciler) executeFinalizerIfPresent(role *api.Role) (completed bo
 	}
 
 	for { // if some policies are attached to the role, wait till they're detached
-		attachedPolicies, err := r.awsRM.GetAttachedRolePoliciesARNs(role.AwsName(r.clusterName))
+		attachedPoliciesARNs, err := r.awsRM.GetAttachedRolePoliciesARNs(role.AwsName(r.clusterName))
 		if err != nil {
 			r.controllerErrLog(role, "list attached policies", err)
 			return false
 		}
 
-		if len(attachedPolicies) == 0 { // no policy attached, exit the loop
+		if len(attachedPoliciesARNs) == 0 { // no policy attached, exit the loop
+			r.updateStatus(context.TODO(), role, api.NewRoleStatus(api.CrDeleting, "no policy attached"))
 			break
 		} else { // we found some policies attached
-			r.log.Info(fmt.Sprintf("%d policies still attached, waiting for them to be detached", len(attachedPolicies)))
+			// policy should also try to detach policies on its side
+			r.updateStatus(context.TODO(), role, api.NewRoleStatus(api.CrDeleting, fmt.Sprintf("%d policies still attached, waiting for them to be detached", len(attachedPoliciesARNs))))
+			for _, attachedPolicyARN := range attachedPoliciesARNs {
+				r.awsRM.DetachRolePolicy(role.AwsName(r.clusterName), attachedPolicyARN)
+			}
 			time.Sleep(time.Second * 5)
 		}
 	}
@@ -276,6 +281,7 @@ func (r *RoleReconciler) executeFinalizerIfPresent(role *api.Role) (completed bo
 			r.controllerErrLog(role, "aws role deletion", err)
 			return false
 		}
+		r.updateStatus(context.TODO(), role, api.NewRoleStatus(api.CrDeleting, "role deleted on AWS"))
 	}
 
 	{ // delete the role CR

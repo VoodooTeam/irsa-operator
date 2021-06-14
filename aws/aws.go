@@ -349,6 +349,15 @@ func (m RealAwsManager) CreateRole(role api.Role, permissionsBoundariesPolicyARN
 	return nil
 }
 
+func (m RealAwsManager) DetachRolePolicy(roleName, policyARN string) error {
+	if _, err := m.Client.DetachRolePolicy(&iam.DetachRolePolicyInput{RoleName: &roleName, PolicyArn: &policyARN}); err != nil {
+		m.logExtErr(err, "failed to detach role policy on aws")
+		return err
+	}
+	m.log.Info(fmt.Sprintf("successfully detached role (%s) & policy (%s) on aws", roleName, policyARN))
+	return nil
+}
+
 func (m RealAwsManager) AttachRolePolicy(roleName, policyARN string) error {
 	_ = m.log.WithName("aws").WithName("role")
 

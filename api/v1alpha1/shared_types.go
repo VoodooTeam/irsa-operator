@@ -7,8 +7,9 @@ var (
 	CrSubmitted   CrCondition = ""
 	CrPending     CrCondition = "pending"
 	CrProgressing CrCondition = "progressing"
-	CrError       CrCondition = "error"
 	CrOK          CrCondition = "created"
+	CrDeleting    CrCondition = "deleting"
+	CrError       CrCondition = "error"
 )
 
 func (i CrCondition) String() string {

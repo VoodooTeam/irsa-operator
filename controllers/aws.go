@@ -25,4 +25,5 @@ type AwsRoleManager interface {
 	AttachRolePolicy(roleName, policyARN string) error
 	GetAttachedRolePoliciesARNs(roleName string) ([]string, error)
 	GetRoleARN(roleName string) (string, error)
+	DetachRolePolicy(roleName, policyARN string) error
 }
