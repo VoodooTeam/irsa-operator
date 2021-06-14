@@ -25,6 +25,10 @@ func NewPolicy(name, ns string, stm []StatementSpec) *Policy {
 	}
 }
 
+func (p Policy) FullName() string {
+	return p.ObjectMeta.Namespace + "/" + p.ObjectMeta.Name
+}
+
 // HasStatus is used in tests, should be moved there
 func (p Policy) HasStatus(st fmt.Stringer) bool {
 	return p.Status.Condition.String() == st.String()

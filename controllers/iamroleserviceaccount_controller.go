@@ -18,6 +18,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type fullNamer interface {
+	FullName() string
+}
+
 func NewIrsaReconciler(client client.Client, scheme *runtime.Scheme, logger logr.Logger) *IamRoleServiceAccountReconciler {
 	return &IamRoleServiceAccountReconciler{
 		Client:      client,
@@ -95,14 +99,14 @@ func (r *IamRoleServiceAccountReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 // admissionStep does spec validation
 func (r *IamRoleServiceAccountReconciler) admissionStep(ctx context.Context, irsa *api.IamRoleServiceAccount) (ctrl.Result, error) {
-	{
+	{ //validation
 		if err := irsa.Validate(); err != nil { // the iamroleserviceaccount spec is invalid
 			ok := r.updateStatus(ctx, irsa, api.IamRoleServiceAccountStatus{Condition: api.IrsaFailed, Reason: err.Error()})
 			return ctrl.Result{Requeue: !ok}, nil
 		}
 	}
 
-	{
+	{ //conflict check
 		if r.saWithNameExistsInNs(ctx, irsa.ObjectMeta.Name, irsa.ObjectMeta.Namespace) { // serviceAccountName conflicts with an existing one
 			ok := r.updateStatus(ctx, irsa, api.IamRoleServiceAccountStatus{Condition: api.IrsaFailed, Reason: "serviceAccountName conflict"})
 			return ctrl.Result{Requeue: !ok}, nil
@@ -117,25 +121,24 @@ func (r *IamRoleServiceAccountReconciler) admissionStep(ctx context.Context, irs
 func (r *IamRoleServiceAccountReconciler) reconcilerRoutine(ctx context.Context, irsa *api.IamRoleServiceAccount) (ctrl.Result, error) {
 	var policyAlreadyExists, roleAlreadyExists, saAlreadyExists bool
 
-	{ // Policy creation
+	{ // policy creation
 		var ok bool
 		policyAlreadyExists, ok = r.policyAlreadyExists(ctx, irsa.ObjectMeta.Name, irsa.ObjectMeta.Namespace)
 		if !ok {
 			return ctrl.Result{Requeue: true}, nil
 		}
 
-		if !policyAlreadyExists {
+		if !policyAlreadyExists { // create policy
 			ok := r.createPolicy(ctx, irsa)
 			return ctrl.Result{Requeue: !ok}, nil
-		} else {
-			ok := r.updatePolicyIfNeeded(ctx, irsa)
-			if !ok {
+		} else { // update policy
+			if ok := r.updatePolicyIfNeeded(ctx, irsa); !ok {
 				return ctrl.Result{Requeue: true}, nil
 			}
 		}
 	}
 
-	{ // Role creation
+	{ // role creation
 		var ok bool
 		roleAlreadyExists, ok = r.roleAlreadyExists(ctx, irsa.ObjectMeta.Name, irsa.ObjectMeta.Namespace)
 		if !ok {
@@ -156,12 +159,12 @@ func (r *IamRoleServiceAccountReconciler) reconcilerRoutine(ctx context.Context,
 		}
 
 		if !saAlreadyExists {
-			if r.roleIsOk(ctx, irsa.ObjectMeta.Name, irsa.ObjectMeta.Namespace) && r.policyIsOK(ctx, irsa.ObjectMeta.Name, irsa.ObjectMeta.Namespace) {
+			if r.roleIsOk(ctx, irsa.ObjectMeta.Name, irsa.ObjectMeta.Namespace) && r.policyIsOK(ctx, irsa.ObjectMeta.Name, irsa.ObjectMeta.Namespace) { // wait for role & policy to be successfully created
 				if ok := r.createServiceAccount(ctx, irsa); !ok {
 					return ctrl.Result{Requeue: true}, nil
 				}
 			}
-		}
+		} // todo : update the already existing serviceAccount
 	}
 
 	{ // set the status to ok
@@ -179,49 +182,45 @@ func (r *IamRoleServiceAccountReconciler) executeFinalizerIfPresent(ctx context.
 		// no finalizer to execute
 		return true
 	}
-	resourceLogId := irsa.ObjectMeta.Namespace + "/" + irsa.ObjectMeta.Name
 
-	{ // we delete the service account we created, we first need to ensure it is not owned by another operator (since it's a serviceaccount)
+	{ // we delete the sa we created
 		sa := &corev1.ServiceAccount{}
-		step := "serviceAccount deletion : " + resourceLogId
 		if err := r.Get(ctx, types.NamespacedName{Namespace: irsa.ObjectMeta.Namespace, Name: irsa.ObjectMeta.Name}, sa); err != nil {
 			if !k8serrors.IsNotFound(err) {
-				r.logExtErr(err, step)
+				r.logExtErr(irsa, "get sa", err)
 				return false
 			}
 		}
 
-		owned := false
-		for _, or := range sa.GetOwnerReferences() {
-			if or.UID == irsa.UID {
-				owned = true
-				break
+		{ // ensure it is not owned by another operator
+			owned := false
+			for _, or := range sa.GetOwnerReferences() {
+				if or.UID == irsa.UID {
+					owned = true
+					break
+				}
 			}
-		}
 
-		if owned { // we delete the service account if we own it
-			if err := r.Delete(ctx, sa); err != nil {
-				if !k8serrors.IsNotFound(err) {
-					r.logExtErr(err, step)
+			if owned { // we delete the service account
+				if err := r.Delete(ctx, sa); err != nil && !k8serrors.IsNotFound(err) {
+					r.logExtErr(irsa, "delete sa", err)
 					return false
 				}
 			}
 		}
 	}
 
-	{ // we delete the iamroleserviceaccount CR we may have already created
-		if err := r.Delete(ctx, irsa); err != nil {
-			if !k8serrors.IsNotFound(err) {
-				r.logExtErr(err, "iamroleserviceaccount deletion : "+resourceLogId)
-				return false
-			}
+	{ // delete the irsa CR
+		if err := r.Delete(ctx, irsa); err != nil && !k8serrors.IsNotFound(err) {
+			r.logExtErr(irsa, "delete irsa", err)
+			return false
 		}
 	}
 
 	{ // we remove our finalizer from the list and update it.
 		irsa.ObjectMeta.Finalizers = removeString(irsa.ObjectMeta.Finalizers, r.finalizerID)
 		if err := r.Update(context.Background(), irsa); err != nil {
-			r.logExtErr(err, "failed to remove the finalizer : "+resourceLogId)
+			r.logExtErr(irsa, "remove the finalizer", err)
 			return false
 		}
 	}
@@ -266,53 +265,44 @@ func (r *IamRoleServiceAccountReconciler) saAlreadyExists(ctx context.Context, n
 	return r.resourceExists(ctx, name, ns, &corev1.ServiceAccount{})
 }
 
-func (r *IamRoleServiceAccountReconciler) resourceExists(ctx context.Context, name, ns string, obj client.Object) (bool, bool) {
+func (r *IamRoleServiceAccountReconciler) resourceExists(ctx context.Context, name, ns string, obj client.Object) (exists bool, ok bool) {
 	if err := r.Client.Get(ctx, types.NamespacedName{Name: name, Namespace: ns}, obj); err != nil {
-		if k8s.IsNotFound(err) {
-			return false, true
-		} else {
-			// something went wrong, requeue
-			r.logExtErr(err, "get resource failed")
-			return false, false
-		}
+		return false, k8s.IsNotFound(err)
 	}
 
 	return true, true
 }
 
 func (r *IamRoleServiceAccountReconciler) createPolicy(ctx context.Context, irsa *api.IamRoleServiceAccount) bool {
-	// we instantiate the policy
 	newPolicy := api.NewPolicy(irsa.ObjectMeta.Name, irsa.ObjectMeta.Namespace, irsa.Spec.Policy.Statement)
 
-	// set this irsa instance as the owner of this role
-	if err := ctrl.SetControllerReference(irsa, newPolicy, r.scheme); err != nil {
-		// another resource is already the owner...
-		r.logExtErr(err, "failed to set the controller reference")
-		return false
+	{ // set this irsa instance as the owner of this role
+		if err := ctrl.SetControllerReference(irsa, newPolicy, r.scheme); err != nil { // another resource is already the owner...
+			r.logExtErr(irsa, "set the controller reference", err)
+			return false
+		}
 	}
 
-	if err := r.Client.Create(ctx, newPolicy); err != nil {
-		// we failed to create it, requeue
-		r.logExtErr(err, "failed to create policy")
-		return false
+	{ // create the policy resource
+		if err := r.Client.Create(ctx, newPolicy); err != nil { // we create it, requeue
+			r.logExtErr(irsa, "create policy", err)
+			return false
+		}
 	}
+
 	return true
 }
 
-func (r *IamRoleServiceAccountReconciler) updatePolicyIfNeeded(ctx context.Context, irsa *api.IamRoleServiceAccount) bool {
+func (r *IamRoleServiceAccountReconciler) updatePolicyIfNeeded(ctx context.Context, irsa *api.IamRoleServiceAccount) (ok bool) {
 	policy := &api.Policy{}
 	exists, ok := r.resourceExists(ctx, irsa.ObjectMeta.Name, irsa.ObjectMeta.Namespace, policy)
-	if !bool(ok) || !exists {
+	if !ok || !exists {
 		return false
 	}
 
-	// todo, check if they are actually different
-
-	// we instantiate the policy
 	policy.Spec.Statement = irsa.Spec.Policy.Statement
-	if err := r.Client.Update(ctx, policy); err != nil {
-		// we failed to create it, requeue
-		r.logExtErr(err, "failed to create policy")
+	if err := r.Client.Update(ctx, policy); err != nil { // we update it
+		r.logExtErr(irsa, "create policy", err)
 		return false
 	}
 
@@ -320,8 +310,6 @@ func (r *IamRoleServiceAccountReconciler) updatePolicyIfNeeded(ctx context.Conte
 }
 
 func (r *IamRoleServiceAccountReconciler) createRole(ctx context.Context, irsa *api.IamRoleServiceAccount) bool {
-	r.log.Info("creating role")
-
 	// we initialize a new role
 	role := api.NewRole(
 		irsa.ObjectMeta.Name,
@@ -329,39 +317,34 @@ func (r *IamRoleServiceAccountReconciler) createRole(ctx context.Context, irsa *
 	)
 
 	// set this irsa instance as the owner of this role
-	if err := ctrl.SetControllerReference(irsa, role, r.scheme); err != nil {
-		// another resource is already the owner...
-		r.logExtErr(err, "failed to set the controller reference")
+	if err := ctrl.SetControllerReference(irsa, role, r.scheme); err != nil { // another resource is already the owner...
+		r.logExtErr(irsa, "set controller reference", err)
 		return false
 	}
 
 	// then we create the role on k8s
 	if err := r.Client.Create(ctx, role); err != nil {
-		r.logExtErr(err, "failed to create role")
+		r.logExtErr(irsa, "create role", err)
 		return false
 	}
 
 	return true
 }
 
-func (r *IamRoleServiceAccountReconciler) createServiceAccount(ctx context.Context, irsa *api.IamRoleServiceAccount) bool {
-	r.log.Info("creating service_account")
-
+func (r *IamRoleServiceAccountReconciler) createServiceAccount(ctx context.Context, irsa *api.IamRoleServiceAccount) (ok bool) {
 	role := &api.Role{}
-	if err := r.Client.Get(ctx, types.NamespacedName{Name: irsa.ObjectMeta.Name, Namespace: irsa.ObjectMeta.Namespace}, role); err != nil {
-		if k8s.IsNotFound(err) {
-			return false
-		} else {
-			// something went wrong, requeue
-			r.logExtErr(err, "get resource failed")
-			return false
+	{ // get role details
+		if err := r.Client.Get(ctx, types.NamespacedName{Name: irsa.ObjectMeta.Name, Namespace: irsa.ObjectMeta.Namespace}, role); err != nil {
+			if k8s.IsNotFound(err) {
+				return false
+			} else { // something went wrong, requeue
+				r.logExtErr(irsa, "get resource", err)
+				return false
+			}
 		}
 	}
 
-	if role.Spec.RoleARN != "" {
-		r.log.Info("role has arn")
-
-		// we initialize a new serviceAccount
+	if role.Spec.RoleARN != "" { // initialize a new serviceAccount
 		newServiceAccount := &corev1.ServiceAccount{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: "v1",
@@ -377,20 +360,16 @@ func (r *IamRoleServiceAccountReconciler) createServiceAccount(ctx context.Conte
 		}
 
 		// set the current iamroleserviceaccount as the owner
-		if err := ctrl.SetControllerReference(irsa, newServiceAccount, r.scheme); err != nil {
-			// another resource is already the owner...
-			r.logExtErr(err, "failed to set the controller reference")
+		if err := ctrl.SetControllerReference(irsa, newServiceAccount, r.scheme); err != nil { // another resource is already the owner...
+			r.logExtErr(irsa, "set controller reference", err)
 			return false
 		}
 
 		// then actually create the serviceAccount
-		if err := r.Client.Create(ctx, newServiceAccount); err != nil {
-			// we failed to create it, requeue
-			r.logExtErr(err, "failed to create serviceaccount")
+		if err := r.Client.Create(ctx, newServiceAccount); err != nil { // we create it, requeue
+			r.logExtErr(irsa, "create sa", err)
 			return false
 		}
-	} else {
-		r.log.Info("role has no RoleArn in spec, waiting")
 	}
 
 	return true
@@ -412,13 +391,13 @@ func (r *IamRoleServiceAccountReconciler) registerFinalizerIfNeeded(role *api.Ia
 		// we add it to the irsa
 		role.ObjectMeta.Finalizers = append(role.ObjectMeta.Finalizers, r.finalizerID)
 		if err := r.Update(context.Background(), role); err != nil {
-			r.logExtErr(err, "setting finalizer failed")
+			r.logExtErr(role, "set finalizer", err)
 			return false
 		}
 	}
 	return true
 }
 
-func (r *IamRoleServiceAccountReconciler) logExtErr(err error, msg string) {
-	r.log.Info(fmt.Sprintf("%s : %s", msg, err))
+func (r *IamRoleServiceAccountReconciler) logExtErr(resource fullNamer, msg string, err error) {
+	r.log.Info(fmt.Sprintf("[%s] : Failed to %s : %s", resource.FullName(), msg, err))
 }

@@ -24,6 +24,10 @@ func NewRole(name, ns string) *Role {
 	}
 }
 
+func (r Role) FullName() string {
+	return r.ObjectMeta.Namespace + "/" + r.ObjectMeta.Name
+}
+
 // HasStatus is used in tests, should be moved there
 func (r Role) HasStatus(st fmt.Stringer) bool {
 	return r.Status.Condition.String() == st.String()
