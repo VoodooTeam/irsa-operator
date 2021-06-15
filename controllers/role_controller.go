@@ -272,7 +272,7 @@ func (r *RoleReconciler) executeFinalizerIfPresent(role *api.Role) (completed bo
 		// policy should also try to detach policies on its side
 		r.updateStatus(context.TODO(), role, api.NewRoleStatus(api.CrDeleting, fmt.Sprintf("%d policies still attached, waiting for them to be detached", len(attachedPoliciesARNs))))
 		for _, attachedPolicyARN := range attachedPoliciesARNs {
-			r.awsRM.DetachRolePolicy(role.AwsName(r.clusterName), attachedPolicyARN)
+			_ = r.awsRM.DetachRolePolicy(role.AwsName(r.clusterName), attachedPolicyARN)
 		}
 		time.Sleep(time.Second * 5)
 	}
