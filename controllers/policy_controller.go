@@ -43,11 +43,9 @@ type PolicyReconciler struct {
 
 // Reconcile is called each time an event occurs on an api.Policy resource
 func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = r.log.WithValues("policy", req.NamespacedName)
-
 	var policy *api.Policy
 	{ // extract policy from the request
-		var ok completed
+		var ok bool
 		policy, ok = r.getPolicyFromReq(ctx, req)
 		if !ok {
 			// didn't complete, requeing
@@ -61,7 +59,7 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	{ // finalizer registration & execution
 		if policy.IsPendingDeletion() {
-			if ok := r.executeFinalizerIfPresent(policy); !ok {
+			if ok := r.executeFinalizerIfPresent(ctx, policy); !ok {
 				return ctrl.Result{Requeue: true}, nil
 			}
 			// ok, no requeue
@@ -97,157 +95,138 @@ func (r *PolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 //
 
 // admissionStep does spec validation
-func (r *PolicyReconciler) admissionStep(ctx context.Context, policy *api.Policy) (ctrl.Result, error) {
-	r.log.Info("handling submitted IamPolicy (checking values, setting defaults)")
-
-	if err := policy.Validate(r.clusterName); err != nil { // the policy spec is invalid
-		r.log.Info("invalid spec, passing status to failed")
-		if err := r.updateStatus(ctx, policy, api.PolicyStatus{Condition: api.CrFailed, Reason: err.Error()}); err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{}, nil
+func (r *PolicyReconciler) admissionStep(ctx context.Context, p *api.Policy) (ctrl.Result, error) {
+	if err := p.Validate(r.clusterName); err != nil { // the policy spec is not valid
+		ok := r.updateStatus(ctx, p, api.NewPolicyStatus(api.CrError, err.Error()))
+		return ctrl.Result{Requeue: !ok}, nil
 	}
 
-	// update the role to "pending"
-	if err := r.updateStatus(ctx, policy, api.PolicyStatus{Condition: api.CrPending, Reason: "passed validation"}); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{}, nil
+	// update the role status to "progressing"
+	ok := r.updateStatus(ctx, p, api.NewPolicyStatus(api.CrProgressing, "passed validation"))
+	return ctrl.Result{Requeue: !ok}, nil
 }
 
 // reconcilerRoutine is an infinite loop attempting to make the aws IAM policy converge to the policy.Spec
 func (r *PolicyReconciler) reconcilerRoutine(ctx context.Context, policy *api.Policy) (ctrl.Result, error) {
-	r.log.Info("reconciler routine")
-
-	if policy.Spec.ARN == "" { // no arn in spec, if we find it on aws : we set the spec, otherwise : we create the AWS policy
+	if policy.Spec.ARN == "" { // no arn in spec
 		foundARN, err := r.awsPM.GetPolicyARN(policy.PathPrefix(r.clusterName), policy.AwsName(r.clusterName))
 		if err != nil {
-			r.logExtErr(err, "failed while attempting to find policy on aws")
+			r.updateStatus(ctx, policy, api.NewPolicyStatus(api.CrError, err.Error()))
 			return ctrl.Result{Requeue: true}, nil
 		}
 
-		if foundARN == "" { // no policy on aws
-			if err := r.awsPM.CreatePolicy(*policy); err != nil { // we create it
-				r.logExtErr(err, "failed to create policy on aws")
-				return ctrl.Result{Requeue: true}, nil
+		if foundARN == "" { // no policy on aws, let's create it
+			if err := r.awsPM.CreatePolicy(*policy); err != nil { // creation failed
+				r.updateStatus(ctx, policy, api.NewPolicyStatus(api.CrError, "failed to create policy on AWS : "+err.Error()))
+			} else { // creation succeeded
+				r.updateStatus(ctx, policy, api.NewPolicyStatus(api.CrProgressing, "policy created on AWS"))
 			}
-		} else { // a policy already exists on aws
-			if ok := r.setPolicyArnField(ctx, foundARN, policy); !ok { // we set the policyARN field
-				return ctrl.Result{Requeue: true}, nil
-			}
+			return ctrl.Result{Requeue: true}, nil
 		}
-	} else { // policy arn in spec, we may have to update it on aws
+
+		// a policy already exists on aws
+		r.setPolicyArnField(ctx, foundARN, policy) // we set the policyARN field
+		r.updateStatus(ctx, policy, api.NewPolicyStatus(api.CrProgressing, "policy found on AWS"))
+		return ctrl.Result{}, nil // modifying the policyARN field will generate a new event
+
+	} else { // policy ARN in spec
 		policyStatement, err := r.awsPM.GetStatement(policy.Spec.ARN)
 		if err != nil {
+			r.updateStatus(ctx, policy, api.NewPolicyStatus(api.CrError, "get policyStatement on AWS failed : "+err.Error()))
 			return ctrl.Result{Requeue: true}, nil
 		}
 
 		if !api.StatementEquals(policy.Spec.Statement, policyStatement) { // policy on aws doesn't correspond to the one in Spec
 			// we update the aws policy
 			if err := r.awsPM.UpdatePolicy(*policy); err != nil {
+				r.updateStatus(ctx, policy, api.NewPolicyStatus(api.CrError, "update policyStatement on AWS failed : "+err.Error()))
 				return ctrl.Result{Requeue: true}, nil
 			}
+			r.updateStatus(ctx, policy, api.NewPolicyStatus(api.CrProgressing, "update policyStatement on AWS succeeded"))
+			return ctrl.Result{Requeue: true}, nil
 		}
 	}
 
 	if policy.Status.Condition != api.CrOK {
-		r.log.Info("passing policy status to OK")
-		_ = r.updateStatus(ctx, policy, api.PolicyStatus{Condition: api.CrOK})
+		r.updateStatus(ctx, policy, api.NewPolicyStatus(api.CrOK, "all done"))
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (r *PolicyReconciler) executeFinalizerIfPresent(policy *api.Policy) completed {
+func (r *PolicyReconciler) executeFinalizerIfPresent(ctx context.Context, policy *api.Policy) (completed bool) {
 	if !containsString(policy.ObjectMeta.Finalizers, r.finalizerID) { // no finalizer to execute
 		return true
 	}
 
-	r.log.Info("executing finalizer : deleting policy on aws")
-
-	arn, err := r.awsPM.GetPolicyARN(policy.PathPrefix(r.clusterName), policy.AwsName(r.clusterName))
-	if err != nil {
-		if !k8serrors.IsNotFound(err) {
-			r.logExtErr(err, "failed to get policy arn")
-			return false
-		} else {
-			return true
-		}
-	}
-	if arn == "" {
-		// already deleted
-		return true
+	if policy.Spec.ARN == "" { // the operator hasn't created the policy yet, all done
+		return r.removeFinalizer(ctx, policy)
 	}
 
-	// policy found on aws
-	if err := r.awsPM.DeletePolicy(arn); err != nil {
-		// it failed for any reason, we requeue
-		r.logExtErr(err, "failed to delete policy on aws")
+	if exists, err := r.awsPM.PolicyExists(policy.Spec.ARN); !exists && err == nil { // policy already deleted, all done
+		return r.removeFinalizer(ctx, policy)
+	}
+
+	// delete the policy on AWS
+	if err := r.awsPM.DeletePolicy(policy.Spec.ARN); err != nil { // deletion failed
+		r.updateStatus(ctx, policy, api.NewPolicyStatus(api.CrError, "delete Policy on AWS failed : "+err.Error()))
 		return false
 	}
 
-	r.log.Info("deleting policy")
-	// let's delete the policy itself
-	if err := r.Delete(context.TODO(), policy); err != nil {
-		if !k8serrors.IsNotFound(err) {
-			r.logExtErr(err, "delete policy failed")
+	{ // let's delete the policy (k8s resource) itself
+		if err := r.Delete(ctx, policy); err != nil && !k8serrors.IsNotFound(err) {
+			r.controllerErrLog(policy, "delete policy", err)
 			return false
 		}
 	}
-	r.log.Info("policy deleted")
 
-	// it succeeded
-	// we remove our finalizer from the list and update it.
-	policy.ObjectMeta.Finalizers = removeString(policy.ObjectMeta.Finalizers, r.finalizerID)
-	if err := r.Update(context.Background(), policy); err != nil {
-		return false
-	}
-
-	return true
+	return r.removeFinalizer(ctx, policy)
 }
 
-// helper function to update a Policy status
-func (r *PolicyReconciler) updateStatus(ctx context.Context, Policy *api.Policy, status api.PolicyStatus) error {
-	Policy.Status = status
-	return r.Status().Update(ctx, Policy)
+func (r *PolicyReconciler) removeFinalizer(ctx context.Context, p *api.Policy) bool {
+	p.ObjectMeta.Finalizers = removeString(p.ObjectMeta.Finalizers, r.finalizerID)
+	return r.Update(ctx, p) == nil
 }
 
-func (r *PolicyReconciler) registerFinalizerIfNeeded(role *api.Policy) completed {
-	if !containsString(role.ObjectMeta.Finalizers, r.finalizerID) {
-		// the finalizer isn't registered yet
+func (r *PolicyReconciler) updateStatus(ctx context.Context, p *api.Policy, status api.PolicyStatus) bool {
+	p.Status = status
+	return r.Status().Update(ctx, p) == nil
+}
+
+func (r *PolicyReconciler) registerFinalizerIfNeeded(role *api.Policy) (completed bool) {
+	if !containsString(role.ObjectMeta.Finalizers, r.finalizerID) { // the finalizer isn't registered yet
 		// we add it to the role.
 		role.ObjectMeta.Finalizers = append(role.ObjectMeta.Finalizers, r.finalizerID)
 		if err := r.Update(context.Background(), role); err != nil {
-			r.logExtErr(err, "setting finalizer failed")
+			r.controllerErrLog(role, "setting finalizer", err)
 			return false
 		}
 	}
 	return true
 }
 
-func (r *PolicyReconciler) logExtErr(err error, msg string) {
-	r.log.Info(fmt.Sprintf("%s : %s", msg, err))
+func (r *PolicyReconciler) controllerErrLog(resource fullNamer, msg string, err error) {
+	r.log.Info(fmt.Sprintf("[%s] : Failed to %s : %s", resource.FullName(), msg, err))
 }
 
-func (r *PolicyReconciler) getPolicyFromReq(ctx context.Context, req ctrl.Request) (*api.Policy, completed) {
+func (r *PolicyReconciler) getPolicyFromReq(ctx context.Context, req ctrl.Request) (policy *api.Policy, completed bool) {
 	p := &api.Policy{}
 	if err := r.Get(ctx, req.NamespacedName, p); err != nil {
 		if errors.IsNotFound(err) {
 			return nil, true
 		}
 
-		r.logExtErr(err, "get resource failed")
+		r.controllerErrLog(p, "get resource failed", err)
 		return nil, false
 	}
 
 	return p, true
 }
 
-func (r *PolicyReconciler) setPolicyArnField(ctx context.Context, arn string, policy *api.Policy) completed {
+func (r *PolicyReconciler) setPolicyArnField(ctx context.Context, arn string, policy *api.Policy) (completed bool) {
 	policy.Spec.ARN = arn
 	if err := r.Update(ctx, policy); err != nil {
-		r.logExtErr(err, "failed to set policy.Spec.ARN")
+		r.controllerErrLog(policy, "set policy.Spec.ARN", err)
 		return false
 	}
 	return true

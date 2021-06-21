@@ -4,11 +4,12 @@ package v1alpha1
 type CrCondition string
 
 var (
-	CrSubmitted CrCondition = ""
-	CrPending   CrCondition = "pending"
-	CrForbidden CrCondition = "forbidden"
-	CrFailed    CrCondition = "failed"
-	CrOK        CrCondition = "created"
+	CrSubmitted   CrCondition = ""
+	CrPending     CrCondition = "pending"
+	CrProgressing CrCondition = "progressing"
+	CrOK          CrCondition = "created"
+	CrDeleting    CrCondition = "deleting"
+	CrError       CrCondition = "error"
 )
 
 func (i CrCondition) String() string {

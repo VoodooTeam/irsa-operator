@@ -167,7 +167,7 @@ func (m RealAwsManager) DeletePolicy(policyARN string) error {
 	if _, err := m.Client.GetPolicy(&iam.GetPolicyInput{PolicyArn: &policyARN}); err != nil {
 		if reqErr, ok := err.(awserr.RequestFailure); ok {
 			if reqErr.StatusCode() == http.StatusNotFound {
-				// already created, nothing to do
+				// already deleted, nothing to do
 				m.log.Info("policy doesnt exists on aws")
 				return nil
 			}
@@ -346,6 +346,15 @@ func (m RealAwsManager) CreateRole(role api.Role, permissionsBoundariesPolicyARN
 	}
 
 	m.log.Info(fmt.Sprintf("successfully created trust role policy (%s) on aws", rn))
+	return nil
+}
+
+func (m RealAwsManager) DetachRolePolicy(roleName, policyARN string) error {
+	if _, err := m.Client.DetachRolePolicy(&iam.DetachRolePolicyInput{RoleName: &roleName, PolicyArn: &policyARN}); err != nil {
+		m.logExtErr(err, "failed to detach role policy on aws")
+		return err
+	}
+	m.log.Info(fmt.Sprintf("successfully detached role (%s) & policy (%s) on aws", roleName, policyARN))
 	return nil
 }
 

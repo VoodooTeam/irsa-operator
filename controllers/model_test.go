@@ -20,7 +20,7 @@ var _ = Describe("cluster state", func() {
 
 	It("must converge", func() {
 		count := 100
-		log.Println("will run against ", count, "different envs")
+		log.Println("will run against ", count, " different envs")
 		for i := 0; i < count; i++ {
 			names = append(names, validName())
 		}
@@ -139,6 +139,7 @@ func getInitialErrs() map[awsMethod]struct{} {
 		getPolicyARN,
 		createRole,
 		attachRolePolicy,
+		detachRolePolicy,
 		deleteRole,
 		roleExists,
 		getRoleARN,

@@ -23,6 +23,10 @@ func NewIamRoleServiceAccount(name, ns string, policyspec PolicySpec) *IamRoleSe
 	}
 }
 
+func (irsa IamRoleServiceAccount) FullName() string {
+	return irsa.ObjectMeta.Namespace + "/" + irsa.ObjectMeta.Name
+}
+
 // HasStatus is used in tests, should be moved there
 func (irsa IamRoleServiceAccount) HasStatus(st fmt.Stringer) bool {
 	return irsa.Status.Condition.String() == st.String()

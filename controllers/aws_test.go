@@ -46,6 +46,7 @@ const (
 	getPolicyARN                awsMethod = "getPolicyARN"
 	createRole                  awsMethod = "createRole"
 	attachRolePolicy            awsMethod = "attachRolePolicy"
+	detachRolePolicy            awsMethod = "detachRolePolicy"
 	deleteRole                  awsMethod = "deleteRole"
 	roleExists                  awsMethod = "roleExists"
 	getRoleARN                  awsMethod = "getRoleARN"
@@ -235,12 +236,30 @@ func (s *awsFake) AttachRolePolicy(roleName, policyARN string) error {
 	}
 
 	stack := raw.(awsStack)
-	// todo fix roleName inconcistencies (should be awsRoleName ?)
-	//if stack.role.name != roleName {
-	//	return errors.New("role not found")
-	//}
-
 	stack.role.attachedPolicies = append(stack.role.attachedPolicies, policyARN)
+	s.stacks.Store(cN, stack)
+	return nil
+}
+
+func (s *awsFake) DetachRolePolicy(roleName, policyARN string) error {
+	cN := getClusterNameFromRoleName(roleName)
+	if err := s.shouldFailAt(cN, detachRolePolicy); err != nil {
+		return err
+	}
+
+	raw, ok := s.stacks.Load(cN)
+	if !ok {
+		return errors.New("stack doesn't exists")
+	}
+
+	stack := raw.(awsStack)
+	newAttachedPolicies := []string{}
+	for _, p := range stack.role.attachedPolicies {
+		if p != policyARN {
+			newAttachedPolicies = append(newAttachedPolicies, p)
+		}
+	}
+	stack.role.attachedPolicies = newAttachedPolicies
 	s.stacks.Store(cN, stack)
 	return nil
 }

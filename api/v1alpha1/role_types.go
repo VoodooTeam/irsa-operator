@@ -24,6 +24,10 @@ func NewRole(name, ns string) *Role {
 	}
 }
 
+func (r Role) FullName() string {
+	return r.ObjectMeta.Namespace + "/" + r.ObjectMeta.Name
+}
+
 // HasStatus is used in tests, should be moved there
 func (r Role) HasStatus(st fmt.Stringer) bool {
 	return r.Status.Condition.String() == st.String()
@@ -75,6 +79,13 @@ func (spec RoleSpec) Validate() error {
 type RoleStatus struct {
 	Condition CrCondition `json:"condition"`
 	Reason    string      `json:"reason,omitempty"`
+}
+
+func NewRoleStatus(condition CrCondition, reason string) RoleStatus {
+	return RoleStatus{
+		Condition: condition,
+		Reason:    reason,
+	}
 }
 
 // +kubebuilder:object:root=true
