@@ -2,6 +2,13 @@ apiVersion: v1
 entries:
   irsa-operator:
   - apiVersion: v1
+    created: "2021-06-21T11:38:10.005436207Z"
+    digest: cbb218b5ac3fd3e06fa241e3c647408f032422bf9fd58ca6f73daea40b59b04b
+    name: irsa-operator
+    urls:
+    - https://github.com/VoodooTeam/irsa-operator/releases/download/helm-v0.1.0/irsa-operator-0.1.0.tgz
+    version: 0.1.0
+  - apiVersion: v1
     created: "2021-06-07T16:04:29.566282712Z"
     digest: dc16bd8b53de55a9a0fb5384c6114ea05a78b2804a0fbf42301e7edc903b3a47
     name: irsa-operator
@@ -71,4 +78,4 @@ entries:
     urls:
     - https://github.com/VoodooTeam/irsa-operator/releases/download/helm-v0.0.0/irsa-operator-0.0.0.tgz
     version: 0.0.0
-generated: "2021-06-07T16:04:29.566331514Z"
+generated: "2021-06-21T11:38:10.005489007Z"
