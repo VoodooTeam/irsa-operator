@@ -108,25 +108,28 @@ func (r *PolicyReconciler) admissionStep(ctx context.Context, p *api.Policy) (ct
 
 // reconcilerRoutine is an infinite loop attempting to make the aws IAM policy converge to the policy.Spec
 func (r *PolicyReconciler) reconcilerRoutine(ctx context.Context, policy *api.Policy) (ctrl.Result, error) {
-	if policy.Spec.ARN == "" { // no arn in spec, if we find it on aws : we set the spec, otherwise : we create the AWS policy
+	if policy.Spec.ARN == "" { // no arn in spec
 		foundARN, err := r.awsPM.GetPolicyARN(policy.PathPrefix(r.clusterName), policy.AwsName(r.clusterName))
 		if err != nil {
 			r.updateStatus(ctx, policy, api.NewPolicyStatus(api.CrError, err.Error()))
 			return ctrl.Result{Requeue: true}, nil
 		}
 
-		if foundARN == "" { // no policy on aws, we create it
+		if foundARN == "" { // no policy on aws, let's create it
 			if err := r.awsPM.CreatePolicy(*policy); err != nil { // creation failed
 				r.updateStatus(ctx, policy, api.NewPolicyStatus(api.CrError, "failed to create policy on AWS : "+err.Error()))
 			} else { // creation succeeded
 				r.updateStatus(ctx, policy, api.NewPolicyStatus(api.CrProgressing, "policy created on AWS"))
 			}
 			return ctrl.Result{Requeue: true}, nil
-		} else { // a policy already exists on aws
-			r.setPolicyArnField(ctx, foundARN, policy) // we set the policyARN field
-			return ctrl.Result{}, nil                  // modifying the policyARN field will generate a new event
 		}
-	} else { // policy ARN in spec, we may have to update it on aws
+
+		// a policy already exists on aws
+		r.setPolicyArnField(ctx, foundARN, policy) // we set the policyARN field
+		r.updateStatus(ctx, policy, api.NewPolicyStatus(api.CrProgressing, "policy found on AWS"))
+		return ctrl.Result{}, nil // modifying the policyARN field will generate a new event
+
+	} else { // policy ARN in spec
 		policyStatement, err := r.awsPM.GetStatement(policy.Spec.ARN)
 		if err != nil {
 			r.updateStatus(ctx, policy, api.NewPolicyStatus(api.CrError, "get policyStatement on AWS failed : "+err.Error()))
@@ -138,9 +141,9 @@ func (r *PolicyReconciler) reconcilerRoutine(ctx context.Context, policy *api.Po
 			if err := r.awsPM.UpdatePolicy(*policy); err != nil {
 				r.updateStatus(ctx, policy, api.NewPolicyStatus(api.CrError, "update policyStatement on AWS failed : "+err.Error()))
 				return ctrl.Result{Requeue: true}, nil
-			} else {
-				r.updateStatus(ctx, policy, api.NewPolicyStatus(api.CrProgressing, "update policyStatement on AWS succeeded"))
 			}
+			r.updateStatus(ctx, policy, api.NewPolicyStatus(api.CrProgressing, "update policyStatement on AWS succeeded"))
+			return ctrl.Result{Requeue: true}, nil
 		}
 	}
 

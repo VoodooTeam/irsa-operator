@@ -115,24 +115,23 @@ func (r *RoleReconciler) admissionStep(ctx context.Context, role *api.Role) (ctr
 
 // reconcilerRoutine is an infinite loop attempting to make the aws IAM role, with it's attachment converge to the role.Spec
 func (r *RoleReconciler) reconcilerRoutine(ctx context.Context, role *api.Role) (ctrl.Result, error) {
-	if role.Spec.RoleARN == "" { // no arn in spec, if we find it on aws : we set the spec, otherwise : we create the AWS role
+	if role.Spec.RoleARN == "" { // no arn in spec
 		roleExistsOnAws, err := r.awsRM.RoleExists(role.AwsName(r.clusterName))
-		if err != nil {
+		if err != nil { // failed to check if roles exists on AWS
 			r.updateStatus(ctx, role, api.NewRoleStatus(api.CrError, "failed to check if role exists on AWS"))
 			return ctrl.Result{Requeue: true}, nil
 		}
 
 		if roleExistsOnAws {
-			if ok := r.setRoleArnField(ctx, role); !ok {
-				r.updateStatus(ctx, role, api.NewRoleStatus(api.CrProgressing, "role found on AWS"))
-				return ctrl.Result{}, nil // updating the role leads to an automatic requeue
-			}
-		} else {
-			if ok := r.createRoleOnAws(ctx, role, r.permissionsBoundariesPolicyARN); !ok {
-				return ctrl.Result{Requeue: true}, nil
-			}
-			r.updateStatus(ctx, role, api.NewRoleStatus(api.CrProgressing, "role created on AWS"))
+			r.setRoleArnField(ctx, role)
+			r.updateStatus(ctx, role, api.NewRoleStatus(api.CrProgressing, "role found on AWS"))
+			return ctrl.Result{}, nil // updating the role leads to an automatic requeue
 		}
+
+		if ok := r.createRoleOnAws(ctx, role, r.permissionsBoundariesPolicyARN); !ok {
+			return ctrl.Result{Requeue: true}, nil
+		}
+		r.updateStatus(ctx, role, api.NewRoleStatus(api.CrProgressing, "role created on AWS"))
 	}
 
 	if role.Spec.PolicyARN == "" { // the role doesn't have the policyARN set in Spec
@@ -141,10 +140,11 @@ func (r *RoleReconciler) reconcilerRoutine(ctx context.Context, role *api.Role) 
 		}
 		r.updateStatus(ctx, role, api.NewRoleStatus(api.CrProgressing, "policy found on AWS"))
 		return ctrl.Result{Requeue: true}, nil
-	} else { // the role already has a policyARN in Spec
-		if ok := r.attachPolicyToRoleIfNeeded(ctx, role); !ok { // we attach the policy with the role on aws
-			return ctrl.Result{Requeue: true}, nil
-		}
+	}
+
+	// the role already has a policyARN in Spec
+	if ok := r.attachPolicyToRoleIfNeeded(ctx, role); !ok { // we attach the policy with the role on aws
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	if role.Status.Condition != api.CrOK {

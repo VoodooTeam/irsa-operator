@@ -159,16 +159,20 @@ func (r *IamRoleServiceAccountReconciler) reconcilerRoutine(ctx context.Context,
 		}
 
 		if !saAlreadyExists {
-			if r.roleIsOk(ctx, irsa.ObjectMeta.Name, irsa.ObjectMeta.Namespace) && r.policyIsOK(ctx, irsa.ObjectMeta.Name, irsa.ObjectMeta.Namespace) { // wait for role & policy to be successfully created
+			if r.roleIsOk(ctx, irsa.ObjectMeta.Name, irsa.ObjectMeta.Namespace) &&
+				r.policyIsOK(ctx, irsa.ObjectMeta.Name, irsa.ObjectMeta.Namespace) { // role & policy have been successfully created
 				if ok := r.createServiceAccount(ctx, irsa); !ok {
 					return ctrl.Result{Requeue: true}, nil
 				}
 			}
-		} // todo : update the already existing serviceAccount
+		}
 	}
 
 	{ // set the status to ok
-		if policyAlreadyExists && roleAlreadyExists && saAlreadyExists && irsa.Status.Condition != api.IrsaOK {
+		if policyAlreadyExists &&
+			roleAlreadyExists &&
+			saAlreadyExists &&
+			irsa.Status.Condition != api.IrsaOK {
 			ok := r.updateStatus(ctx, irsa, api.IamRoleServiceAccountStatus{Condition: api.IrsaOK, Reason: "all resources successfully created"})
 			return ctrl.Result{Requeue: !ok}, nil
 		}
