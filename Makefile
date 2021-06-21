@@ -58,8 +58,8 @@ deploy: manifests kustomize
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
-gen-helm: manifests kustomize
-	$(KUSTOMIZE) build config/default > config/helm/irsa/templates/irsa-operator.yml
+#gen-helm: manifests kustomize
+#	$(KUSTOMIZE) build config/default > config/helm/irsa/templates/irsa-operator.yml
 
 # UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
 undeploy:
