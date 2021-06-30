@@ -75,7 +75,7 @@ spec:
 
 An helm chart is available on this repo, you can use it to install the operator in a cluster.
 
-The operator will use IRSA also to do its job (but you have to do that once per cluster and fields are hardcoded in the helm chart), see see [./\_example/terraform/main.tf](./_example/terraform/main.tf ) 
+The operator will use IRSA also to do its job (but you have to do that once per cluster and fields are hardcoded in the helm chart), see see [./\_doc/example/terraform/main.tf](./\_doc/example/terraform/main.tf ) 
 
 - the `clusterName` is used to avoid name collisions between AWS IAM resources created by different EKS running in the same account, you can use whatever value you want (most likely the EKS cluster name)
 - the rolearn is the role the operator will use
@@ -128,7 +128,7 @@ k logs deploy/irsa-operator-controller-manager -n irsa-operator-system -c manage
 ### deploy a resource that uses the iamroleserviceaccount CRD 
 
 ```
-helm install s3lister --set s3BucketName=<bucket_name> ./_example/k8s
+helm install s3lister --set s3BucketName=<bucket_name> ./_doc/example/k8s
 ```
 
 #### check 
