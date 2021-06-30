@@ -47,6 +47,11 @@ spec:
             - name: health
               containerPort: 8081
               protocol: TCP
+          {{- if .Values.localstackEndpoint }}
+          env:
+            - value: {{ .Values.localstackEndpoint }}
+              name: LOCALSTACK_ENDPOINT
+          {{- end }}
           livenessProbe:
             httpGet:
               path: /healthz

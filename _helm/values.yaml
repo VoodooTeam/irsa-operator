@@ -5,9 +5,12 @@
 replicaCount: 1
 
 clusterName:
-roleARN: 
+roleARN:
 oidcProviderARN:
 permissionsBoundariesPolicyARN: ""
+
+# for local deployments only :
+localstackEndpoint:
 
 image:
   repository: ghcr.io/voodooteam/irsa-operator

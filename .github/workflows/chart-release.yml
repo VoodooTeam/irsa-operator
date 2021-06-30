@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - '_helm/*'
+      - '_helm/Chart.yml'
 
 jobs:
   release:
