@@ -75,7 +75,7 @@ spec:
 
 An helm chart is available on this repo, you can use it to install the operator in a cluster.
 
-The operator will use IRSA also to do its job (but you have to do that once per cluster and fields are hardcoded in the helm chart), see see [./_example/terraform/main.tf](./_example/terraform/main.tf ) 
+The operator will use IRSA also to do its job (but you have to do that once per cluster and fields are hardcoded in the helm chart), see see [./\_example/terraform/main.tf](./_example/terraform/main.tf ) 
 
 - the `clusterName` is used to avoid name collisions between AWS IAM resources created by different EKS running in the same account, you can use whatever value you want (most likely the EKS cluster name)
 - the rolearn is the role the operator will use
@@ -90,7 +90,7 @@ Here's how IRSA works and how the irsa-operator interfaces with it
 
 ## model
 
-TLA+ formal specification of the way this operator works is available : [./_doc/model/IrsaOperator.pdf](./_doc/model/IrsaOperator.pdf)
+TLA+ formal specification of the way this operator works is available : [./\_doc/model/IrsaOperator.pdf](./_doc/model/IrsaOperator.pdf)
 
 
 ## project structure
@@ -140,9 +140,25 @@ kubectl logs --selector=app=s3lister
 
 if you see the listing of your s3 `<bucket_name>`, congratulations ! the pod has been able to achieve this using the abilities you gave it in your `IamRoleServiceAccount.Spec` !
 
+## Work on the project
+### Dev Dependencies
+If you use [nix](https://nixos.org/download.html) you can open a shell with everything you need installed :
+```
+nix-shell
+```
+otherwise, you'll need :
+- go
+- operator-sdk
+- helm
+- docker-compose
+- kind
+- awscli2
+- openssl
+- curl
+- jq
+- gnumake
+- envsubst
 
-
-## work on the project
 ### resources
 - [kubebuilder](https://book.kubebuilder.io/)
 - [kubernetes operator concurrency model](https://openkruise.io/en-us/blog/blog2.html)
