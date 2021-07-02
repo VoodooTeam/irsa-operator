@@ -1,26 +1,4 @@
-local policy =
-  {
-    group: 'irsa.voodoo.io',
-    version: 'v1alpha1',
-    plural: 'policies',
-    name: 's3put',
-    ns: 'default',
-  };
-
-local policyIsPresent = {
-  name: 'get-custom-object',
-  type: 'probe',
-  tolerance: {
-    type: 'jsonpath',
-    path: '$.apiVersion',
-  },
-  provider: {
-    type: 'python',
-    module: 'chaosk8s.crd.probes',
-    func: 'get_custom_object',
-    arguments: policy,
-  },
-};
+local s = import './shared.libsonnet';
 
 {
   version: '1.0.0',
@@ -29,7 +7,10 @@ local policyIsPresent = {
   tags: [],
   'steady-state-hypothesis': {
     title: 'the policiy is present',
-    probes: [policyIsPresent],
+    probes: [
+      s.policyIsPresent,
+      s.operatorHealthy,
+    ],
   },
   method: [
     {
@@ -39,9 +20,10 @@ local policyIsPresent = {
         type: 'python',
         module: 'chaosk8s.crd.actions',
         func: 'delete_custom_object',
-        arguments: policy,
+        arguments: s.policy,
       },
     },
-    policyIsPresent,
+    s.policyIsPresent,
+    s.operatorHealthy,
   ],
 }

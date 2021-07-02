@@ -10,7 +10,7 @@ kind: ServiceAccount
 metadata:
   name: oidc-sa
   annotations:
-    eks.amazonaws.com/role-arn: $ROLE_ARN 
+    eks.amazonaws.com/role-arn: $ROLE_ARN
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -19,6 +19,7 @@ metadata:
   namespace: system
   labels:
     control-plane: controller-manager
+    app: irsa-operator
 spec:
   selector:
     matchLabels:
@@ -28,6 +29,7 @@ spec:
     metadata:
       labels:
         control-plane: controller-manager
+        app: irsa-operator
     spec:
       serviceAccountName: irsa-operator-oidc-sa
       securityContext:
