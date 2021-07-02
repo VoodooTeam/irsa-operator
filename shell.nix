@@ -13,6 +13,24 @@ let
       ref = "v0.1.0";
     })
     { inherit pkgs; system = builtins.currentSystem; };
+
+  mach-nix = import
+    (builtins.fetchGit {
+      url = "https://github.com/DavHau/mach-nix/";
+      ref = "refs/tags/3.1.1";
+    })
+    {
+      python = "python39";
+      inherit pkgs;
+    };
+
+  pythonPkgs = mach-nix.mkPython {
+    requirements = ''
+      chaostoolkit
+      chaostoolkit-kubernetes
+      jsonpath2
+    '';
+  };
 in
 pkgs.mkShell {
   buildInputs =
@@ -36,5 +54,7 @@ pkgs.mkShell {
       pkgs.jq
       pkgs.gnumake
       pkgs.envsubst
+
+      pythonPkgs
     ];
 }
