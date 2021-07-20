@@ -68,6 +68,8 @@ undeploy:
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	rm ./_helm/crds/*
+	cp config/crd/bases/* ./_helm/crds/ 
 
 # Run go fmt against code
 fmt:

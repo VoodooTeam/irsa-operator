@@ -1,0 +1,123 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "irsa-operator.fullname" . }}-leader-election
+  labels:
+    {{- include "irsa-operator.labels" . | nindent 4 }}
+rules:
+  - apiGroups:
+      - ""
+      - coordination.k8s.io
+    resources:
+      - configmaps
+      - leases
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "irsa-operator.fullname" . }}-manager
+  labels:
+    {{- include "irsa-operator.labels" . | nindent 4 }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - serviceaccounts
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - irsa.voodoo.io
+    resources:
+      - iamroleserviceaccounts
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - update
+      - watch
+  - apiGroups:
+      - irsa.voodoo.io
+    resources:
+      - iamroleserviceaccounts/finalizers
+    verbs:
+      - update
+  - apiGroups:
+      - irsa.voodoo.io
+    resources:
+      - iamroleserviceaccounts/status
+    verbs:
+      - get
+      - update
+  - apiGroups:
+      - irsa.voodoo.io
+    resources:
+      - policies
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - irsa.voodoo.io
+    resources:
+      - policies/finalizers
+    verbs:
+      - update
+  - apiGroups:
+      - irsa.voodoo.io
+    resources:
+      - policies/status
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - irsa.voodoo.io
+    resources:
+      - roles
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - irsa.voodoo.io
+    resources:
+      - roles/finalizers
+    verbs:
+      - update
+  - apiGroups:
+      - irsa.voodoo.io
+    resources:
+      - roles/status
+    verbs:
+      - get
+      - patch
+      - update
