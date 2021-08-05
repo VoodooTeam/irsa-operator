@@ -82,12 +82,49 @@ func (m RealAwsManager) UpdatePolicy(policy api.Policy) error {
 		return err
 	}
 
+	if err := m.deleteOldestPolicyVersionIfNeeded(policy.Spec.ARN); err != nil {
+		return err
+	}
+
 	_, err = m.Client.CreatePolicyVersion(&iam.CreatePolicyVersionInput{PolicyArn: &policy.Spec.ARN, PolicyDocument: &policyDoc, SetAsDefault: aws.Bool(true)})
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// deleteOldestPolicyVersionIfNeeded deletes the oldest policy version of a manage policy
+// if it is full, ie if it has already 5 versions
+func (m RealAwsManager) deleteOldestPolicyVersionIfNeeded(arn string) error {
+	res, err := m.Client.ListPolicyVersions(&iam.ListPolicyVersionsInput{PolicyArn: &arn})
+	if err != nil {
+		return err
+	}
+
+	// no need to delete a version if we have less than 5
+	if len(res.Versions) < 5 {
+		return nil
+	}
+
+	// looking for the oldest non-default version
+	var oldest *iam.PolicyVersion
+
+	for _, pv := range res.Versions {
+		if *pv.IsDefaultVersion {
+			continue
+		}
+		if oldest == nil || pv.CreateDate.Before(*oldest.CreateDate) {
+			oldest = pv
+		}
+	}
+
+	if oldest == nil {
+		return nil
+	}
+
+	_, err = m.Client.DeletePolicyVersion(&iam.DeletePolicyVersionInput{PolicyArn: &arn, VersionId: oldest.VersionId})
+	return err
 }
 
 func (m RealAwsManager) CreatePolicy(policy api.Policy) error {

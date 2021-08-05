@@ -6,9 +6,11 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var validPolicy = api.NewPolicy("name", "testns", []api.StatementSpec{
-	{Resource: "arn:aws:s3:::my_corporate_bucket/exampleobject.png", Action: []string{"an:action"}},
-})
+var (
+	validPolicy = api.NewPolicy("name", "testns", []api.StatementSpec{
+		{Resource: "arn:aws:s3:::my_corporate_bucket/exampleobject.png", Action: []string{"an:action"}},
+	})
+)
 
 var _ = Describe("policy", func() {
 	It("given a valid policy", func() {
@@ -25,6 +27,14 @@ var _ = Describe("policy", func() {
 		policyARN, err := awsmngr.GetPolicyARN(validPolicy.PathPrefix(clusterName), validPolicy.AwsName(clusterName))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(policyARN).NotTo(BeEmpty())
+
+		By("creating new policy versions 5 times")
+		validPolicy.Spec.ARN = policyARN
+
+		for i := 0; i < 5; i++ {
+			err = awsmngr.UpdatePolicy(*validPolicy)
+			Expect(err).ToNot(HaveOccurred())
+		}
 
 		By("deleting it")
 		Expect(policyARN).NotTo(BeEmpty())
