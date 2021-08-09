@@ -173,7 +173,7 @@ otherwise, you'll need :
 
 ### Publish the helm chart
 if the previous step went fine
-- update [./_helm/Chart.yaml](./_helm/Chart.yaml) and set the version to <version>
+- update [./_helm/chart/Chart.yaml](./_helm/chart/Chart.yaml) and set the version to <version>
 - it will trigger the `chart-release` workflow, publish the helm chart and create a release called `helm-v<version>`
 
 
