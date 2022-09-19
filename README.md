@@ -1,3 +1,5 @@
+# !!! DISCLAIMER: This repository is not maintained anymore !!!
+
 # IRSA operator 
 
 ![CI](https://github.com/VoodooTeam/irsa-operator/actions/workflows/ci.yml/badge.svg)
